@@ -279,7 +279,7 @@ JumpHeightInput = U:CreateInput({
 })
 
 WalkSpeedToggle = U:CreateToggle({
-    Name = "Включить кастомную скорость",
+    Name = "Apply Walk Speed?",
     CurrentValue = _G.WalkSpeedEnabled,
     Flag = "WalkSpeedToggle",
     Callback = function(Value)
@@ -288,7 +288,7 @@ WalkSpeedToggle = U:CreateToggle({
 })
 
 JumpHeightToggle = U:CreateToggle({
-    Name = "Включить кастомную высоту прыжка",
+    Name = "Apply Jump Height?",
     CurrentValue = _G.JumpHeightEnabled,
     Flag = "JumpHeightToggle",
     Callback = function(Value)
