@@ -9,7 +9,7 @@
 
 -- Объявление глобальных переменных
 _G.WalkSpeed = 16
-_G.JumpHeight = 50
+_G.JumpHeight = 7.2
 
 -- Функции для установки значений
 local function setWalkSpeed(value)
