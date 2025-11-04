@@ -1,0 +1,374 @@
+--[[
+╭━━━┳╮╱╱╱╱╱╱╱╱╱╱╱╱╭╮       -Character-
+┃╭━╮┃┃╱╱╱╱╱╱╱╱╱╱╱╭╯╰╮
+┃┃╱╰┫╰━┳━━┳━┳━━┳━┻╮╭╋━━┳━╮
+┃┃╱╭┫╭╮┃╭╮┃╭┫╭╮┃╭━┫┃┃┃━┫╭╯ 
+┃╰━╯┃┃┃┃╭╮┃┃┃╭╮┃╰━┫╰┫┃━┫┃
+╰━━━┻╯╰┻╯╰┻╯╰╯╰┻━━┻━┻━━┻╯
+]]
+
+-- Объявление глобальных переменных
+_G.WalkSpeed = 16
+_G.JumpHeight = 7.2
+_G.WalkSpeedEnabled = false
+_G.JumpHeightEnabled = false
+
+-- Функции для установки значений
+local function setWalkSpeed(value)
+    _G.WalkSpeed = value
+    if WalkSpeedInput then
+        WalkSpeedInput:Set(tostring(value))
+    end
+end
+
+local function setJumpHeight(value)
+    _G.JumpHeight = value
+    if JumpHeightInput then
+        JumpHeightInput:Set(tostring(value))
+    end
+end
+
+-- Постоянное обновление параметров
+game:GetService("RunService").Heartbeat:Connect(function()
+    local character = game.Players.LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            -- Применяем кастомные значения только если они включены
+            if _G.WalkSpeedEnabled then
+                humanoid.WalkSpeed = _G.WalkSpeed
+            end
+            
+            if _G.JumpHeightEnabled then
+                humanoid.JumpHeight = _G.JumpHeight
+            end
+            
+            -- Защита от изменений сервера
+            if humanoid:GetAttribute("OriginalWalkSpeed") == nil then
+                humanoid:SetAttribute("OriginalWalkSpeed", humanoid.WalkSpeed)
+            end
+            if humanoid:GetAttribute("OriginalJumpHeight") == nil then
+                humanoid:SetAttribute("OriginalJumpHeight", humanoid.JumpHeight)
+            end
+        end
+    end
+end)
+
+-- Обработка смены персонажа
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Ждем полной загрузки персонажа
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        if _G.WalkSpeedEnabled then
+            humanoid.WalkSpeed = _G.WalkSpeed
+        end
+        
+        if _G.JumpHeightEnabled then
+            humanoid.JumpHeight = _G.JumpHeight
+        end
+    end
+end)
+
+--[[
+╭━━━━┳━━━╮   -TP TO PLAYER-
+┃╭╮╭╮┃╭━╮┃
+╰╯┃┃╰┫╰━╯┃
+╱╱┃┃╱┃╭━━╯
+╱╱┃┃╱┃┃
+╱╱╰╯╱╰╯
+--]]
+
+local function FindPlayerByName(name)
+    local players = game:GetService("Players"):GetPlayers()
+    for _, player in ipairs(players) do
+        if player.Name:lower():find(name:lower()) or player.DisplayName:lower():find(name:lower()) then
+            return player
+        end
+    end
+    return nil
+end
+
+--[[
+╭━━━┳╮╱╭╮╱╱╭╮
+┃╭━━┫┃╱┃╰╮╭╯┃
+┃╰━━┫┃╱╰╮╰╯╭╯
+┃╭━━┫┃╱╭╋╮╭╯
+┃┃╱╱┃╰━╯┃┃┃
+╰╯╱╱╰━━━╯╰╯
+--]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService") -- Сервис для отслеживания нажатий
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- == Переменные из вашего запроса ==
+local fly = false       -- Изменено на false по умолчанию
+local flyspeed = 50 -- Скорость полёта (в стадах/секунду)
+-- =================================
+
+local bodyVelocity = nil -- Переменная для хранения нашего BodyVelocity
+
+-- Эта функция запускается каждый кадр
+RunService.RenderStepped:Connect(function()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+
+    -- Проверяем, должна ли переменная fly включать полёт
+    if fly then
+        -- Если полёт включен, но BodyVelocity еще не создан...
+        if not bodyVelocity then
+            bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Parent = humanoidRootPart
+            -- Устанавливаем огромную силу, чтобы преодолеть гравитацию
+            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            print("Полёт ВКЛЮЧЕН")
+        end
+        
+        -- --- Логика управления ---
+        
+        -- 1. Сбрасываем вектор направления каждый кадр
+        local direction = Vector3.new(0, 0, 0)
+        
+        -- 2. Получаем направления относительно камеры и мира
+        local camForward = camera.CFrame.LookVector -- Куда смотрит камера (вперед/назад)
+        local camRight = camera.CFrame.RightVector   -- Направление "вправо" от камеры
+        local worldUp = Vector3.new(0, 1, 0)       -- Глобальный "вверх"
+
+        -- 3. Проверяем нажатия клавиш и суммируем направления
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + camForward
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - camForward
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + camRight
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - camRight
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + worldUp
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then
+            direction = direction - worldUp
+        end
+
+        -- 4. Применяем скорость
+        if direction.Magnitude > 0 then
+            -- .Unit делает вектор единичной длины (чтобы не лететь быстрее по диагонали)
+            bodyVelocity.Velocity = direction.Unit * flyspeed
+        else
+            -- Если ничего не нажато, просто висим в воздухе (скорость 0)
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+    
+    else
+        -- Если fly не равен true
+        -- и BodyVelocity всё еще существует...
+        if bodyVelocity then
+            -- Уничтожаем его, чтобы персонаж упал
+            bodyVelocity:Destroy()
+            bodyVelocity = nil -- Сбрасываем переменную
+            print("Полёт ВЫКЛЮЧЕН")
+        end
+    end
+end)
+
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "UI",
+   LoadingTitle = "Loading...",
+   LoadingSubtitle = "UI Keybind: P",
+   ShowText = "Rayfield.",
+--   Theme = "Light",
+
+   ToggleUIKeybind = "P",
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false,
+
+   ConfigurationSaving = {
+      Enabled = false,
+      FolderName = "MyScriptConfig",
+      FileName = "Settings"
+   }
+   -- Вы можете добавить KeySystem, если нужно
+   -- KeySystem = true,
+   -- KeySettings = {
+   --    Title = "Enter Key",
+   --    Subtitle = "Key System",
+   --    Note = "Get key from Discord",
+   --    FileName = "keyfile",
+   --    SaveKey = true,
+   --    Key = "YOUR_KEY_HERE"
+   -- }
+})
+
+-- Создаем вкладки
+local Hubs = Window:CreateTab("Hubs", 4483362458) -- Вы можете изменить ID иконки
+local U = Window:CreateTab("Universal", 4483362458) -- или убрать его, оставив 0
+
+--[[
+   Сюда вы можете добавлять элементы
+   в каждую вкладку
+]] 
+
+-- Пример добавления элемента во вкладку UBG
+--Hubs:CreateLabel("Ultimate Battlegrounds")
+Hubs:CreateButton({
+   Name = "Elton's Hub",
+   Callback = function()
+      loadstring(game:HttpGet("https://eltonshub-loader.netlify.app/UBG1.lua"))()
+
+      Rayfield:Notify({
+         Title = "Notify.",
+         Content = "Loading Script...",
+         Duration = 5,
+         Image = "clipboard"
+      })
+   end,
+})
+
+local Paragraph = Hubs:CreateParagraph({Title = "Supported Games:", Content = "UBG, TSB, Defusal FPS, Arsenal, Forsaker, Hunty Zombies."})
+
+local Section3 = U:CreateSection("Camera.")
+
+local FOVSlider = U:CreateSlider({
+   Name = "FOV",
+   Range = {30, 120},
+   Increment = 1,
+   Suffix = "",
+   CurrentValue = 90,
+   Callback = function(Value)
+      workspace.Camera.FieldOfView = (Value)
+   end,
+})
+
+local Section2 = U:CreateSection("Movement")
+
+WalkSpeedInput = U:CreateInput({
+    Name = "Walk Speed",
+    PlaceholderText = "16",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local value = tonumber(Text)
+        if value then
+            setWalkSpeed(value)
+        end
+    end,
+})
+
+JumpHeightInput = U:CreateInput({
+    Name = "Jump Height",
+    PlaceholderText = "7.2",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local value = tonumber(Text)
+        if value then
+            setJumpHeight(value)
+        end
+    end,
+})
+
+WalkSpeedToggle = U:CreateToggle({
+    Name = "Включить кастомную скорость",
+    CurrentValue = _G.WalkSpeedEnabled,
+    Flag = "WalkSpeedToggle",
+    Callback = function(Value)
+        _G.WalkSpeedEnabled = Value
+    end,
+})
+
+JumpHeightToggle = U:CreateToggle({
+    Name = "Включить кастомную высоту прыжка",
+    CurrentValue = _G.JumpHeightEnabled,
+    Flag = "JumpHeightToggle",
+    Callback = function(Value)
+        _G.JumpHeightEnabled = Value
+    end,
+})
+
+WalkSpeedInput:Set(tostring(_G.WalkSpeed))
+JumpHeightInput:Set(tostring(_G.JumpHeight))
+
+local ResetButton = U:CreateButton({
+    Name = "Reset movement.",
+    Callback = function()
+        setWalkSpeed(16)
+        setJumpHeight(7.2)
+    end,
+})
+
+local Section0 = U:CreateSection("Fly.")
+
+U:CreateToggle({
+    Name = "Fly",
+    CurrentValue = false,
+    Flag = "FlyToggle",
+    Callback = function(Value)
+        fly = Value
+        if Value then
+            Rayfield:Notify({
+                Title = "Fly",
+                Content = "Fly Enabled",
+                Duration = 2,
+                Image = 4483362458
+            })
+        else
+            Rayfield:Notify({
+                Title = "Fly",
+                Content = "Fly Disabled",
+                Duration = 2,
+                Image = 4483362458
+            })
+        end
+    end,
+})
+
+-- Слайдер для настройки скорости полета
+U:CreateInput({
+   Name = "Fly Speed",
+   CurrentValue = "50",
+   PlaceholderText = "",
+   RemoveTextAfterFocusLost = false,
+   Flag = "FlySpeed",
+    Callback = function(Value)
+        flyspeed = Value
+    end,
+})
+
+local Section1 = U:CreateSection("TP To Player.")
+
+-- Вариант через Input
+local Input = U:CreateInput({
+    Name = "Teleport to Player",
+    PlaceholderText = "Enter username.",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local targetPlayer = FindPlayerByName(Text)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            game.Players.LocalPlayer.Character:SetPrimaryPartCFrame(targetPlayer.Character.HumanoidRootPart.CFrame)
+            Rayfield:Notify({
+                Title = "Teleport Success",
+                Content = "Teleported to ".. targetPlayer.Name,
+                Duration = 6.5,
+                Image = 4483362458,
+            })
+        else
+            Rayfield:Notify({
+                Title = "Teleport Failed",
+                Content = "Player not found or unavailable",
+                Duration = 6.5,
+                Image = 4483362458,
+            })
+        end
+    end,
+})
