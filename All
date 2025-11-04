@@ -1,0 +1,77 @@
+--[[
+╭━━━┳╮╱╱╱╱╱╱╱╱╱╱╱╱╭╮       -Character-
+┃╭━╮┃┃╱╱╱╱╱╱╱╱╱╱╱╭╯╰╮
+┃┃╱╰┫╰━┳━━┳━┳━━┳━┻╮╭╋━━┳━╮
+┃┃╱╭┫╭╮┃╭╮┃╭┫╭╮┃╭━┫┃┃┃━┫╭╯ 
+┃╰━╯┃┃┃┃╭╮┃┃┃╭╮┃╰━┫╰┫┃━┫┃
+╰━━━┻╯╰┻╯╰┻╯╰╯╰┻━━┻━┻━━┻╯
+]]
+
+-- Объявление глобальных переменных
+_G.WalkSpeed = 16
+_G.JumpHeight = 50
+
+-- Функции для установки значений
+local function setWalkSpeed(value)
+    _G.WalkSpeed = value
+    if WalkSpeedInput then
+        WalkSpeedInput:Set(tostring(value))
+    end
+end
+
+local function setJumpHeight(value)
+    _G.JumpHeight = value
+    if JumpHeightInput then
+        JumpHeightInput:Set(tostring(value))
+    end
+end
+
+-- Постоянное обновление параметров
+game:GetService("RunService").Heartbeat:Connect(function()
+    local character = game.Players.LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            -- Применяем кастомные значения
+            humanoid.WalkSpeed = _G.WalkSpeed
+            humanoid.JumpHeight = _G.JumpHeight
+            
+            -- Защита от изменений сервера
+            if humanoid:GetAttribute("OriginalWalkSpeed") == nil then
+                humanoid:SetAttribute("OriginalWalkSpeed", humanoid.WalkSpeed)
+            end
+            if humanoid:GetAttribute("OriginalJumpHeight") == nil then
+                humanoid:SetAttribute("OriginalJumpHeight", humanoid.JumpHeight)
+            end
+        end
+    end
+end)
+
+-- Обработка смены персонажа
+game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
+    wait(1) -- Ждем полной загрузки персонажа
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = _G.WalkSpeed
+        humanoid.JumpHeight = _G.JumpHeight
+    end
+end)
+
+--[[
+╱╱╱╱╱╱╱╱╱╱╭━━━┳╮╱╭╮╱╱╭╮            -Fly-
+╱╱╱╱╱╱╱╱╱╱┃╭━━┫┃╱┃╰╮╭╯┃
+╱╱╱╱╱╱╱╱╱╱┃╰━━┫┃╱╰╮╰╯╭╯
+╭━━┳━━┳━━╮┃╭━━┫┃╱╭╋╮╭╯╱╭━━┳━━┳━━╮
+╰━━┻━━┻━━╯┃┃╱╱┃╰━╯┃┃┃╱╱╰━━┻━━┻━━╯
+╱╱╱╱╱╱╱╱╱╱╰╯╱╱╰━━━╯╰╯
+--]]
+
+local function FindPlayerByName(name)
+    local players = game:GetService("Players"):GetPlayers()
+    for _, player in ipairs(players) do
+        if player.Name:lower():find(name:lower()) or player.DisplayName:lower():find(name:lower()) then
+            return player
+        end
+    end
+    return nil
+end
