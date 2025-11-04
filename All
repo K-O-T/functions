@@ -58,12 +58,12 @@ game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
 end)
 
 --[[
-╱╱╱╱╱╱╱╱╱╱╭━━━┳╮╱╭╮╱╱╭╮            -Fly-
-╱╱╱╱╱╱╱╱╱╱┃╭━━┫┃╱┃╰╮╭╯┃
-╱╱╱╱╱╱╱╱╱╱┃╰━━┫┃╱╰╮╰╯╭╯
-╭━━┳━━┳━━╮┃╭━━┫┃╱╭╋╮╭╯╱╭━━┳━━┳━━╮
-╰━━┻━━┻━━╯┃┃╱╱┃╰━╯┃┃┃╱╱╰━━┻━━┻━━╯
-╱╱╱╱╱╱╱╱╱╱╰╯╱╱╰━━━╯╰╯
+╭━━━━┳━━━╮   -TP TO PLAYER-
+┃╭╮╭╮┃╭━╮┃
+╰╯┃┃╰┫╰━╯┃
+╱╱┃┃╱┃╭━━╯
+╱╱┃┃╱┃┃
+╱╱╰╯╱╰╯
 --]]
 
 local function FindPlayerByName(name)
@@ -75,3 +75,96 @@ local function FindPlayerByName(name)
     end
     return nil
 end
+
+--[[
+╭━━━┳╮╱╭╮╱╱╭╮
+┃╭━━┫┃╱┃╰╮╭╯┃
+┃╰━━┫┃╱╰╮╰╯╭╯
+┃╭━━┫┃╱╭╋╮╭╯
+┃┃╱╱┃╰━╯┃┃┃
+╰╯╱╱╰━━━╯╰╯
+--]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService") -- Сервис для отслеживания нажатий
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- == Переменные из вашего запроса ==
+local fly = false       -- Изменено на false по умолчанию
+local flyspeed = 50 -- Скорость полёта (в стадах/секунду)
+-- =================================
+
+local bodyVelocity = nil -- Переменная для хранения нашего BodyVelocity
+
+-- Эта функция запускается каждый кадр
+RunService.RenderStepped:Connect(function()
+    local character = player.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+
+    -- Проверяем, должна ли переменная fly включать полёт
+    if fly then
+        -- Если полёт включен, но BodyVelocity еще не создан...
+        if not bodyVelocity then
+            bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Parent = humanoidRootPart
+            -- Устанавливаем огромную силу, чтобы преодолеть гравитацию
+            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            print("Полёт ВКЛЮЧЕН")
+        end
+        
+        -- --- Логика управления ---
+        
+        -- 1. Сбрасываем вектор направления каждый кадр
+        local direction = Vector3.new(0, 0, 0)
+        
+        -- 2. Получаем направления относительно камеры и мира
+        local camForward = camera.CFrame.LookVector -- Куда смотрит камера (вперед/назад)
+        local camRight = camera.CFrame.RightVector   -- Направление "вправо" от камеры
+        local worldUp = Vector3.new(0, 1, 0)       -- Глобальный "вверх"
+
+        -- 3. Проверяем нажатия клавиш и суммируем направления
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            direction = direction + camForward
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            direction = direction - camForward
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            direction = direction + camRight
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            direction = direction - camRight
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+            direction = direction + worldUp
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then
+            direction = direction - worldUp
+        end
+
+        -- 4. Применяем скорость
+        if direction.Magnitude > 0 then
+            -- .Unit делает вектор единичной длины (чтобы не лететь быстрее по диагонали)
+            bodyVelocity.Velocity = direction.Unit * flyspeed
+        else
+            -- Если ничего не нажато, просто висим в воздухе (скорость 0)
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+    
+    else
+        -- Если fly не равен true
+        -- и BodyVelocity всё еще существует...
+        if bodyVelocity then
+            -- Уничтожаем его, чтобы персонаж упал
+            bodyVelocity:Destroy()
+            bodyVelocity = nil -- Сбрасываем переменную
+            print("Полёт ВЫКЛЮЧЕН")
+        end
+    end
+end)
