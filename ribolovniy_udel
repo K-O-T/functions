@@ -181,6 +181,15 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
+--[[
+██████╗░░█████╗░██╗░░░██╗███████╗██╗███████╗██╗░░░░░██████╗░
+██╔══██╗██╔══██╗╚██╗░██╔╝██╔════╝██║██╔════╝██║░░░░░██╔══██╗
+██████╔╝███████║░╚████╔╝░█████╗░░██║█████╗░░██║░░░░░██║░░██║
+██╔══██╗██╔══██║░░╚██╔╝░░██╔══╝░░██║██╔══╝░░██║░░░░░██║░░██║
+██║░░██║██║░░██║░░░██║░░░██║░░░░░██║███████╗███████╗██████╔╝
+╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═╝░░░░░╚═╝╚══════╝╚══════╝╚═════╝░
+]]
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
@@ -224,20 +233,34 @@ local U = Window:CreateTab("Universal", 4483362458) -- или убрать ег�
 -- Пример добавления элемента во вкладку UBG
 --Hubs:CreateLabel("Ultimate Battlegrounds")
 Hubs:CreateButton({
-   Name = "Elton's Hub",
+   Name = "Elton's Hub [Keyless]",
    Callback = function()
       loadstring(game:HttpGet("https://eltonshub-loader.netlify.app/UBG1.lua"))()
 
       Rayfield:Notify({
-         Title = "Notify.",
+         Title = "Elton's Hub.",
          Content = "Loading Script...",
-         Duration = 5,
-         Image = "clipboard"
+         Duration = 5
       })
    end,
 })
 
-local Paragraph = Hubs:CreateParagraph({Title = "Supported Games:", Content = "UBG, TSB, Defusal FPS, Arsenal, Forsaker, Hunty Zombies."})
+local Paragraph1 = Hubs:CreateParagraph({Title = "Supported Games:", Content = "UBG, TSB, Defusal FPS, Arsenal, Forsaker, Hunty Zombies."})
+
+Hubs:CreateButton({
+   Name = "mspaint [Key Required]",
+   Callback = function()
+      loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/002c19202c9946e6047b0c6e0ad51f84.lua"))()
+
+      Rayfield:Notify({
+         Title = "mspaint",
+         Content = "Loading Script...",
+         Duration = 5
+      })
+   end,
+})
+
+local Paragraph1 = Hubs:CreateParagraph({Title = "Supported Games:", Content = "Doors, Dead Rails, Forsaken, 99 Nighs In Forest, Fisch, Grow A Garden, Bubble Gum Simulator Infinity, Pressure, 3008, Rooms & Doors, BABFT, Grace, MM2, Word Bomb, Notoriety. \nWeb: https://www.mspaint.cc"})
 
 local Section3 = U:CreateSection("Camera.")
 
