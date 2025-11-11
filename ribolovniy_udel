@@ -1,11 +1,32 @@
 --[[
-╭━━━┳╮╱╱╱╱╱╱╱╱╱╱╱╱╭╮       -Character-
-┃╭━╮┃┃╱╱╱╱╱╱╱╱╱╱╱╭╯╰╮
-┃┃╱╰┫╰━┳━━┳━┳━━┳━┻╮╭╋━━┳━╮
-┃┃╱╭┫╭╮┃╭╮┃╭┫╭╮┃╭━┫┃┃┃━┫╭╯ 
-┃╰━╯┃┃┃┃╭╮┃┃┃╭╮┃╰━┫╰┫┃━┫┃
-╰━━━┻╯╰┻╯╰┻╯╰╯╰┻━━┻━┻━━┻╯
-]]
+███╗░░██╗░█████╗░█████╗░██╗░░░░░██╗██████╗░
+████╗░██║██╔══██╗██╔══██╗██║░░░░░██║██╔══██╗
+██╔██╗██║██║░░██║██║░░╚═╝██║░░░░░██║██████╔╝
+██║╚████║██║░░██║██║░░██╗██║░░░░░██║██╔═══╝░
+██║░╚███║╚█████╔╝╚█████╔╝███████╗██║██║░░░░░
+╚═╝░░╚══╝░╚════╝░░╚════╝░╚══════╝╚═╝╚═╝░░░░░]]
+
+local NoclipEnabled = false
+local NoclipConnection
+local Player = game.Players.LocalPlayer
+
+local function NoclipLoop()
+    if Player.Character then
+        for _, part in ipairs(Player.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+--[[
+░█████╗░██╗░░██╗░█████╗░██████╗░░█████╗░░█████╗░████████╗███████╗██████╗░
+██╔══██╗██║░░██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔══██╗
+██║░░╚═╝███████║███████║██████╔╝███████║██║░░╚═╝░░░██║░░░█████╗░░██████╔╝
+██║░░██╗██╔══██║██╔══██║██╔══██╗██╔══██║██║░░██╗░░░██║░░░██╔══╝░░██╔══██╗
+╚█████╔╝██║░░██║██║░░██║██║░░██║██║░░██║╚█████╔╝░░░██║░░░███████╗██║░░██║
+░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝░╚════╝░░░░╚═╝░░░╚══════╝╚═╝░░╚═╝]]
 
 -- Объявление глобальных переменных
 _G.WalkSpeed = 16
@@ -70,13 +91,12 @@ game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
 end)
 
 --[[
-╭━━━━┳━━━╮   -TP TO PLAYER-
-┃╭╮╭╮┃╭━╮┃
-╰╯┃┃╰┫╰━╯┃
-╱╱┃┃╱┃╭━━╯
-╱╱┃┃╱┃┃
-╱╱╰╯╱╰╯
---]]
+████████╗██████╗░
+╚══██╔══╝██╔══██╗
+░░░██║░░░██████╔╝
+░░░██║░░░██╔═══╝░
+░░░██║░░░██║░░░░░
+░░░╚═╝░░░╚═╝░░░░░]]
 
 local function FindPlayerByName(name)
     local players = game:GetService("Players"):GetPlayers()
@@ -89,13 +109,12 @@ local function FindPlayerByName(name)
 end
 
 --[[
-╭━━━┳╮╱╭╮╱╱╭╮
-┃╭━━┫┃╱┃╰╮╭╯┃
-┃╰━━┫┃╱╰╮╰╯╭╯
-┃╭━━┫┃╱╭╋╮╭╯
-┃┃╱╱┃╰━╯┃┃┃
-╰╯╱╱╰━━━╯╰╯
---]]
+███████╗██╗░░░░░██╗░░░██╗
+██╔════╝██║░░░░░╚██╗░██╔╝
+█████╗░░██║░░░░░░╚████╔╝░
+██╔══╝░░██║░░░░░░░╚██╔╝░░
+██║░░░░░███████╗░░░██║░░░
+╚═╝░░░░░╚══════╝░░░╚═╝░░░]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -208,30 +227,20 @@ local Window = Rayfield:CreateWindow({
       Enabled = false,
       FolderName = "MyScriptConfig",
       FileName = "Settings"
-   }
-   -- Вы можете добавить KeySystem, если нужно
-   -- KeySystem = true,
-   -- KeySettings = {
-   --    Title = "Enter Key",
-   --    Subtitle = "Key System",
-   --    Note = "Get key from Discord",
-   --    FileName = "keyfile",
-   --    SaveKey = true,
-   --    Key = "YOUR_KEY_HERE"
-   -- }
+       },
+    Discord = {
+        Enabled = false,
+        InviteCode = "noinvite",
+        RememberJoins = true
+    },
+    KeySystem = false,
 })
 
--- Создаем вкладки
-local Hubs = Window:CreateTab("Hubs", 4483362458) -- Вы можете изменить ID иконки
-local U = Window:CreateTab("Universal", 4483362458) -- или убрать его, оставив 0
 
---[[
-   Сюда вы можете добавлять элементы
-   в каждую вкладку
-]] 
+local Hubs = Window:CreateTab("Hubs", 4483362458)
+local U = Window:CreateTab("Universal", 4483362458)
+local H = Window:CreateTab("Hotkeys", 4483362458)
 
--- Пример добавления элемента во вкладку UBG
---Hubs:CreateLabel("Ultimate Battlegrounds")
 Hubs:CreateButton({
    Name = "Elton's Hub [Keyless]",
    Callback = function()
@@ -275,7 +284,23 @@ local FOVSlider = U:CreateSlider({
    end,
 })
 
-local Section2 = U:CreateSection("Movement")
+local Section2 = U:CreateSection("Character")
+
+local Ntoggle = U:CreateToggle({
+    Name = "Enable Noclip?",
+    CurrentValue = false,
+    Flag = "Ntoggle",
+    Callback = function(Value)
+        NoclipEnabled = Value
+        if Value then
+            NoclipConnection = game:GetService("RunService").Stepped:Connect(NoclipLoop)
+        else
+            if NoclipConnection then
+                NoclipConnection:Disconnect()
+            end
+        end
+    end,
+})
 
 WalkSpeedInput = U:CreateInput({
     Name = "Walk Speed",
@@ -332,7 +357,7 @@ local ResetButton = U:CreateButton({
 
 local Section0 = U:CreateSection("Fly.")
 
-U:CreateToggle({
+Ftoggle = U:CreateToggle({
     Name = "Fly",
     CurrentValue = false,
     Flag = "FlyToggle",
@@ -356,8 +381,7 @@ U:CreateToggle({
     end,
 })
 
--- Слайдер для настройки скорости полета
-U:CreateInput({
+local Fspeed = U:CreateInput({
    Name = "Fly Speed",
    CurrentValue = "50",
    PlaceholderText = "",
@@ -370,7 +394,6 @@ U:CreateInput({
 
 local Section1 = U:CreateSection("TP To Player.")
 
--- Вариант через Input
 local Input = U:CreateInput({
     Name = "Teleport to Player",
     PlaceholderText = "Enter username.",
@@ -395,3 +418,62 @@ local Input = U:CreateInput({
         end
     end,
 })
+
+--[[
+██╗░░██╗░█████╗░████████╗██╗░░██╗███████╗██╗░░░██╗░██████╗
+██║░░██║██╔══██╗╚══██╔══╝██║░██╔╝██╔════╝╚██╗░██╔╝██╔════╝
+███████║██║░░██║░░░██║░░░█████═╝░█████╗░░░╚████╔╝░╚█████╗░
+██╔══██║██║░░██║░░░██║░░░██╔═██╗░██╔══╝░░░░╚██╔╝░░░╚═══██╗
+██║░░██║╚█████╔╝░░░██║░░░██║░╚██╗███████╗░░░██║░░░██████╔╝
+╚═╝░░╚═╝░╚════╝░░░░╚═╝░░░╚═╝░░╚═╝╚══════╝░░░╚═╝░░░╚═════╝░]]
+
+local Keybind = H:CreateKeybind({
+    Name = "Noclip Hotkey",
+    CurrentKeybind = "N",
+    HoldToInteract = false,
+    Flag = "NBind",
+    Callback = function()
+        Ntoggle:Set(not NoclipEnabled)
+    end,
+})
+
+-- Добавленные бинды для WalkSpeedToggle, JumpHeightToggle и Ftoggle
+local WalkSpeedKeybind = H:CreateKeybind({
+    Name = "WalkSpeed Toggle Hotkey",
+    CurrentKeybind = "V",
+    HoldToInteract = false,
+    Flag = "WalkSpeedKeybind",
+    Callback = function()
+        WalkSpeedToggle:Set(not WalkSpeedToggle.CurrentValue)
+    end,
+})
+
+local JumpHeightKeybind = H:CreateKeybind({
+    Name = "JumpHeight Toggle Hotkey",
+    CurrentKeybind = "B",
+    HoldToInteract = false,
+    Flag = "JumpHeightKeybind",
+    Callback = function()
+        JumpHeightToggle:Set(not JumpHeightToggle.CurrentValue)
+    end,
+})
+
+local FlyKeybind = H:CreateKeybind({
+    Name = "Fly Toggle Hotkey",
+    CurrentKeybind = "F",
+    HoldToInteract = false,
+    Flag = "FlyKeybind",
+    Callback = function()
+        Ftoggle:Set(not Ftoggle.CurrentValue)
+    end,
+})
+
+Player.CharacterAdded:Connect(function(character)
+    if NoclipEnabled then
+        wait(1)
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+        end
+        NoclipConnection = game:GetService("RunService").Stepped:Connect(NoclipLoop)
+    end
+end)
