@@ -1,479 +1,1099 @@
---[[
-███╗░░██╗░█████╗░█████╗░██╗░░░░░██╗██████╗░
-████╗░██║██╔══██╗██╔══██╗██║░░░░░██║██╔══██╗
-██╔██╗██║██║░░██║██║░░╚═╝██║░░░░░██║██████╔╝
-██║╚████║██║░░██║██║░░██╗██║░░░░░██║██╔═══╝░
-██║░╚███║╚█████╔╝╚█████╔╝███████╗██║██║░░░░░
-╚═╝░░╚══╝░╚════╝░░╚════╝░╚══════╝╚═╝╚═╝░░░░░]]
-
-local NoclipEnabled = false
-local NoclipConnection
-local Player = game.Players.LocalPlayer
-
-local function NoclipLoop()
-    if Player.Character then
-        for _, part in ipairs(Player.Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
-        end
-    end
-end
-
---[[
-░█████╗░██╗░░██╗░█████╗░██████╗░░█████╗░░█████╗░████████╗███████╗██████╗░
-██╔══██╗██║░░██║██╔══██╗██╔══██╗██╔══██╗██╔══██╗╚══██╔══╝██╔════╝██╔══██╗
-██║░░╚═╝███████║███████║██████╔╝███████║██║░░╚═╝░░░██║░░░█████╗░░██████╔╝
-██║░░██╗██╔══██║██╔══██║██╔══██╗██╔══██║██║░░██╗░░░██║░░░██╔══╝░░██╔══██╗
-╚█████╔╝██║░░██║██║░░██║██║░░██║██║░░██║╚█████╔╝░░░██║░░░███████╗██║░░██║
-░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝░╚════╝░░░░╚═╝░░░╚══════╝╚═╝░░╚═╝]]
-
--- Объявление глобальных переменных
-_G.WalkSpeed = 16
-_G.JumpHeight = 7.2
-_G.WalkSpeedEnabled = false
-_G.JumpHeightEnabled = false
-
--- Функции для установки значений
-local function setWalkSpeed(value)
-    _G.WalkSpeed = value
-    if WalkSpeedInput then
-        WalkSpeedInput:Set(tostring(value))
-    end
-end
-
-local function setJumpHeight(value)
-    _G.JumpHeight = value
-    if JumpHeightInput then
-        JumpHeightInput:Set(tostring(value))
-    end
-end
-
--- Постоянное обновление параметров
-game:GetService("RunService").Heartbeat:Connect(function()
-    local character = game.Players.LocalPlayer.Character
-    if character then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            -- Применяем кастомные значения только если они включены
-            if _G.WalkSpeedEnabled then
-                humanoid.WalkSpeed = _G.WalkSpeed
-            end
-            
-            if _G.JumpHeightEnabled then
-                humanoid.JumpHeight = _G.JumpHeight
-            end
-            
-            -- Защита от изменений сервера
-            if humanoid:GetAttribute("OriginalWalkSpeed") == nil then
-                humanoid:SetAttribute("OriginalWalkSpeed", humanoid.WalkSpeed)
-            end
-            if humanoid:GetAttribute("OriginalJumpHeight") == nil then
-                humanoid:SetAttribute("OriginalJumpHeight", humanoid.JumpHeight)
-            end
-        end
-    end
-end)
-
--- Обработка смены персонажа
-game.Players.LocalPlayer.CharacterAdded:Connect(function(character)
-    wait(1) -- Ждем полной загрузки персонажа
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        if _G.WalkSpeedEnabled then
-            humanoid.WalkSpeed = _G.WalkSpeed
-        end
-        
-        if _G.JumpHeightEnabled then
-            humanoid.JumpHeight = _G.JumpHeight
-        end
-    end
-end)
-
---[[
-████████╗██████╗░
-╚══██╔══╝██╔══██╗
-░░░██║░░░██████╔╝
-░░░██║░░░██╔═══╝░
-░░░██║░░░██║░░░░░
-░░░╚═╝░░░╚═╝░░░░░]]
-
-local function FindPlayerByName(name)
-    local players = game:GetService("Players"):GetPlayers()
-    for _, player in ipairs(players) do
-        if player.Name:lower():find(name:lower()) or player.DisplayName:lower():find(name:lower()) then
-            return player
-        end
-    end
-    return nil
-end
-
---[[
-███████╗██╗░░░░░██╗░░░██╗
-██╔════╝██║░░░░░╚██╗░██╔╝
-█████╗░░██║░░░░░░╚████╔╝░
-██╔══╝░░██║░░░░░░░╚██╔╝░░
-██║░░░░░███████╗░░░██║░░░
-╚═╝░░░░░╚══════╝░░░╚═╝░░░]]
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService") -- Сервис для отслеживания нажатий
-
-local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
-
--- == Переменные из вашего запроса ==
-local fly = false       -- Изменено на false по умолчанию
-local flyspeed = 50 -- Скорость полёта (в стадах/секунду)
--- =================================
-
-local bodyVelocity = nil -- Переменная для хранения нашего BodyVelocity
-
--- Эта функция запускается каждый кадр
-RunService.RenderStepped:Connect(function()
-    local character = player.Character
-    if not character then return end
-    
-    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-
-    -- Проверяем, должна ли переменная fly включать полёт
-    if fly then
-        -- Если полёт включен, но BodyVelocity еще не создан...
-        if not bodyVelocity then
-            bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.Parent = humanoidRootPart
-            -- Устанавливаем огромную силу, чтобы преодолеть гравитацию
-            bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            print("Полёт ВКЛЮЧЕН")
-        end
-        
-        -- --- Логика управления ---
-        
-        -- 1. Сбрасываем вектор направления каждый кадр
-        local direction = Vector3.new(0, 0, 0)
-        
-        -- 2. Получаем направления относительно камеры и мира
-        local camForward = camera.CFrame.LookVector -- Куда смотрит камера (вперед/назад)
-        local camRight = camera.CFrame.RightVector   -- Направление "вправо" от камеры
-        local worldUp = Vector3.new(0, 1, 0)       -- Глобальный "вверх"
-
-        -- 3. Проверяем нажатия клавиш и суммируем направления
-        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-            direction = direction + camForward
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-            direction = direction - camForward
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-            direction = direction + camRight
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-            direction = direction - camRight
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            direction = direction + worldUp
-        end
-        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then
-            direction = direction - worldUp
-        end
-
-        -- 4. Применяем скорость
-        if direction.Magnitude > 0 then
-            -- .Unit делает вектор единичной длины (чтобы не лететь быстрее по диагонали)
-            bodyVelocity.Velocity = direction.Unit * flyspeed
-        else
-            -- Если ничего не нажато, просто висим в воздухе (скорость 0)
-            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        end
-    
-    else
-        -- Если fly не равен true
-        -- и BodyVelocity всё еще существует...
-        if bodyVelocity then
-            -- Уничтожаем его, чтобы персонаж упал
-            bodyVelocity:Destroy()
-            bodyVelocity = nil -- Сбрасываем переменную
-            print("Полёт ВЫКЛЮЧЕН")
-        end
-    end
-end)
-
---[[
-██████╗░░█████╗░██╗░░░██╗███████╗██╗███████╗██╗░░░░░██████╗░
-██╔══██╗██╔══██╗╚██╗░██╔╝██╔════╝██║██╔════╝██║░░░░░██╔══██╗
-██████╔╝███████║░╚████╔╝░█████╗░░██║█████╗░░██║░░░░░██║░░██║
-██╔══██╗██╔══██║░░╚██╔╝░░██╔══╝░░██║██╔══╝░░██║░░░░░██║░░██║
-██║░░██║██║░░██║░░░██║░░░██║░░░░░██║███████╗███████╗██████╔╝
-╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═╝░░░░░╚═╝╚══════╝╚══════╝╚═════╝░
-]]
+-- Rewrite and new functions!
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Создание окна
 local Window = Rayfield:CreateWindow({
-   Name = "UI",
-   LoadingTitle = "Loading...",
-   LoadingSubtitle = "UI Keybind: P",
-   ShowText = "Rayfield.",
---   Theme = "Light",
-
-   ToggleUIKeybind = "P",
-
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-
-   ConfigurationSaving = {
-      Enabled = false,
-      FolderName = "MyScriptConfig",
-      FileName = "Settings"
-       },
-    Discord = {
-        Enabled = false,
-        InviteCode = "noinvite",
-        RememberJoins = true
+    Name = "[Universal]",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "by K",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "PlayerControl",
+        FileName = "Config"
     },
-    KeySystem = false,
+    Discord = {
+        Enabled = true,
+        Invite = "discord.gg/xe-no",
+        RememberJoins = false
+    },
+    KeySystem = false
 })
 
+-- Tabs
+local MainTab = Window:CreateTab("Main", 4483362458)
+local VisualTab = Window:CreateTab("Visual", 4483362458)
+local TeleportTab = Window:CreateTab("TP", 4483362458)
+local KeybindTab = Window:CreateTab("Hotkeys", 4483362458)
+local LoadTab = Window:CreateTab("Load Scripts", 4483362458)
 
-local Hubs = Window:CreateTab("Hubs", 4483362458)
-local U = Window:CreateTab("Universal", 4483362458)
-local H = Window:CreateTab("Hotkeys", 4483362458)
+-- Variables
+local Player = game:GetService("Players").LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local UIS = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 
-Hubs:CreateButton({
-   Name = "Elton's Hub [Keyless]",
-   Callback = function()
-      loadstring(game:HttpGet("https://eltonshub-loader.netlify.app/UBG1.lua"))()
+local OriginalWalkSpeed = 16
+local OriginalJumpHeight = 7.2
+local OriginalFogEnd = game.Lighting.FogEnd
+local OriginalBrightness = game.Lighting.Brightness
+local OriginalOutdoorAmbient = game.Lighting.OutdoorAmbient
+local OriginalClockTime = game.Lighting.ClockTime
 
-      Rayfield:Notify({
-         Title = "Elton's Hub.",
-         Content = "Loading Script...",
-         Duration = 5
-      })
-   end,
-})
+local SpeedEnabled = false
+local JumpEnabled = false
+local FlyEnabled = false
+local NoclipEnabled = false
+local FullbrightEnabled = false
+local NoFogEnabled = false
+local SpinBotEnabled = false
+local ESPEnabled = false
+local ESPTeamCheck = true
+local ESPTransparency = 0.8
+local ESPBoxWidth = 100
+local ESPBoxHeight = 200
+local ESPBoxColor = Color3.new(1, 0, 0)
+local ESPTextColor = Color3.new(1, 1, 1)
 
-local Paragraph1 = Hubs:CreateParagraph({Title = "Supported Games:", Content = "UBG, TSB, Defusal FPS, Arsenal, Forsaker, Hunty Zombies."})
+local FlySpeed = 50
+local DesiredWalkSpeed = 50
+local DesiredJumpHeight = 50
+local SpinBotSpeed = 10
+local FlyVelocity = Vector3.new(0, 0, 0)
+local BodyVelocity
+local NoclipConnection
+local SpeedJumpConnection
+local SpinBotConnection
+local ESPConnections = {}
+local ESPParts = {}
+local FlightLoop
 
-Hubs:CreateButton({
-   Name = "mspaint [Key Required]",
-   Callback = function()
-      loadstring(game:HttpGet("https://api.luarmor.net/files/v3/loaders/002c19202c9946e6047b0c6e0ad51f84.lua"))()
-
-      Rayfield:Notify({
-         Title = "mspaint",
-         Content = "Loading Script...",
-         Duration = 5
-      })
-   end,
-})
-
-local Paragraph1 = Hubs:CreateParagraph({Title = "Supported Games:", Content = "Doors, Dead Rails, Forsaken, 99 Nighs In Forest, Fisch, Grow A Garden, Bubble Gum Simulator Infinity, Pressure, 3008, Rooms & Doors, BABFT, Grace, MM2, Word Bomb, Notoriety. \nWeb: https://www.mspaint.cc"})
-
-local Section3 = U:CreateSection("Camera.")
-
-local FOVSlider = U:CreateSlider({
-   Name = "FOV",
-   Range = {30, 120},
-   Increment = 1,
-   Suffix = "",
-   CurrentValue = 90,
-   Callback = function(Value)
-      workspace.Camera.FieldOfView = (Value)
-   end,
-})
-
-local Section2 = U:CreateSection("Character")
-
-local Ntoggle = U:CreateToggle({
-    Name = "Enable Noclip?",
-    CurrentValue = false,
-    Flag = "Ntoggle",
-    Callback = function(Value)
-        NoclipEnabled = Value
-        if Value then
-            NoclipConnection = game:GetService("RunService").Stepped:Connect(NoclipLoop)
+-- Functions
+local function StartSpeedJumpLoop()
+    if SpeedJumpConnection then
+        SpeedJumpConnection:Disconnect()
+    end
+    
+    SpeedJumpConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if SpeedEnabled then
+            Humanoid.WalkSpeed = DesiredWalkSpeed
         else
-            if NoclipConnection then
-                NoclipConnection:Disconnect()
+            Humanoid.WalkSpeed = OriginalWalkSpeed
+        end
+        
+        if JumpEnabled then
+            Humanoid.JumpHeight = DesiredJumpHeight
+        else
+            Humanoid.JumpHeight = OriginalJumpHeight
+        end
+    end)
+end
+
+local function StopSpeedJumpLoop()
+    if SpeedJumpConnection then
+        SpeedJumpConnection:Disconnect()
+        SpeedJumpConnection = nil
+    end
+end
+
+local function Fly()
+    if FlyEnabled then
+        if not BodyVelocity then
+            BodyVelocity = Instance.new("BodyVelocity")
+            BodyVelocity.MaxForce = Vector3.new(40000, 40000, 40000)
+            BodyVelocity.P = 10000
+            BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            BodyVelocity.Parent = Character:FindFirstChild("HumanoidRootPart")
+        end
+        
+        if FlightLoop then
+            FlightLoop:Disconnect()
+        end
+        
+        FlightLoop = game:GetService("RunService").Heartbeat:Connect(function()
+            if not FlyEnabled or not Character or not Character:FindFirstChild("HumanoidRootPart") then
+                if FlightLoop then
+                    FlightLoop:Disconnect()
+                    FlightLoop = nil
+                end
+                return
+            end
+            
+            -- Проверяем, не вводит ли игрок текст
+            if UIS:GetFocusedTextBox() then
+                if BodyVelocity then
+                    BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                end
+                return
+            end
+            
+            local Camera = workspace.CurrentCamera
+            
+            FlyVelocity = Vector3.new(0, 0, 0)
+            
+            if UIS:IsKeyDown(Enum.KeyCode.W) then
+                FlyVelocity = FlyVelocity + Camera.CFrame.LookVector
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then
+                FlyVelocity = FlyVelocity - Camera.CFrame.LookVector
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then
+                FlyVelocity = FlyVelocity - Camera.CFrame.RightVector
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then
+                FlyVelocity = FlyVelocity + Camera.CFrame.RightVector
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.Space) then
+                FlyVelocity = FlyVelocity + Vector3.new(0, 1, 0)
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+                FlyVelocity = FlyVelocity - Vector3.new(0, 1, 0)
+            end
+            
+            if FlyVelocity.Magnitude > 0 then
+                FlyVelocity = FlyVelocity.Unit * FlySpeed
+            end
+            
+            if BodyVelocity and Character:FindFirstChild("HumanoidRootPart") then
+                BodyVelocity.Velocity = FlyVelocity
+            end
+        end)
+    else
+        if BodyVelocity then
+            BodyVelocity:Destroy()
+            BodyVelocity = nil
+        end
+        if FlightLoop then
+            FlightLoop:Disconnect()
+            FlightLoop = nil
+        end
+    end
+end
+
+local function StartNoclip()
+    if NoclipEnabled then
+        NoclipConnection = game:GetService("RunService").Stepped:Connect(function()
+            if NoclipEnabled and Character then
+                -- Отключаем коллизию у всего персонажа
+                for _, part in pairs(Character:GetDescendants()) do
+                    if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
+                        part.CanCollide = false
+                    end
+                end
+                -- Также отключаем коллизию у HumanoidRootPart
+                if Character:FindFirstChild("HumanoidRootPart") then
+                    Character.HumanoidRootPart.CanCollide = false
+                end
+            end
+        end)
+    else
+        if NoclipConnection then
+            NoclipConnection:Disconnect()
+            NoclipConnection = nil
+        end
+        if Character then
+            -- Восстанавливаем коллизию
+            for _, part in pairs(Character:GetDescendants()) do
+                if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
+                    part.CanCollide = true
+                end
             end
         end
-    end,
-})
+    end
+end
 
-WalkSpeedInput = U:CreateInput({
-    Name = "Walk Speed",
-    PlaceholderText = "16",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(Text)
-        local value = tonumber(Text)
-        if value then
-            setWalkSpeed(value)
+local function ApplyFullbright()
+    if FullbrightEnabled then
+        game.Lighting.Brightness = 2
+        game.Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+        game.Lighting.ClockTime = 14
+        game.Lighting.GlobalShadows = false
+        
+        for _, light in pairs(game.Lighting:GetChildren()) do
+            if light:IsA("Light") then
+                light.Enabled = false
+            end
         end
-    end,
-})
-
-JumpHeightInput = U:CreateInput({
-    Name = "Jump Height",
-    PlaceholderText = "7.2",
-    RemoveTextAfterFocusLost = false,
-    Callback = function(Text)
-        local value = tonumber(Text)
-        if value then
-            setJumpHeight(value)
+    else
+        game.Lighting.Brightness = OriginalBrightness
+        game.Lighting.OutdoorAmbient = OriginalOutdoorAmbient
+        game.Lighting.ClockTime = OriginalClockTime
+        game.Lighting.GlobalShadows = true
+        
+        for _, light in pairs(game.Lighting:GetChildren()) do
+            if light:IsA("Light") then
+                light.Enabled = true
+            end
         end
-    end,
+    end
+end
+
+local function ApplyNoFog()
+    if NoFogEnabled then
+        game.Lighting.FogEnd = 1000000
+    else
+        game.Lighting.FogEnd = OriginalFogEnd
+    end
+end
+
+local function StartSpinBot()
+    if SpinBotConnection then
+        SpinBotConnection:Disconnect()
+    end
+    
+    SpinBotConnection = game:GetService("RunService").Heartbeat:Connect(function()
+        if SpinBotEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
+            local currentCFrame = Character.HumanoidRootPart.CFrame
+            local rotationAmount = SpinBotSpeed * 6.28318 -- 2π радиан в полном обороте
+            local newCFrame = currentCFrame * CFrame.Angles(0, rotationAmount * game:GetService("RunService").Heartbeat:Wait(), 0)
+            Character.HumanoidRootPart.CFrame = newCFrame
+        end
+    end)
+end
+
+local function StopSpinBot()
+    if SpinBotConnection then
+        SpinBotConnection:Disconnect()
+        SpinBotConnection = nil
+    end
+end
+
+-- ESP Functions
+local function CreateESP(player)
+    if ESPParts[player] then
+        if ESPParts[player].box and ESPParts[player].box.Remove then
+            ESPParts[player].box:Remove()
+        end
+        if ESPParts[player].text and ESPParts[player].text.Remove then
+            ESPParts[player].text:Remove()
+        end
+    end
+    
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then 
+        ESPParts[player] = nil
+        return 
+    end
+    
+    local team = player.Team
+    local localTeam = Player.Team
+    
+    -- Проверка команды
+    if ESPTeamCheck and team and localTeam and team == localTeam then
+        return
+    end
+    
+    -- Создаем 2D ESP
+    local box = Drawing.new("Square")
+    box.Visible = false
+    box.Color = ESPBoxColor
+    box.Thickness = 2
+    box.Filled = false
+    box.Transparency = ESPTransparency
+    
+    local nameText = Drawing.new("Text")
+    nameText.Visible = false
+    nameText.Color = ESPTextColor
+    nameText.Size = 14
+    nameText.Text = player.Name
+    nameText.Transparency = ESPTransparency
+    
+    local function update()
+        if not player or not player.Parent or not character or not character:FindFirstChild("HumanoidRootPart") then
+            box:Remove()
+            nameText:Remove()
+            ESPParts[player] = nil
+            return
+        end
+        
+        local rootPart = character.HumanoidRootPart
+        local camera = workspace.CurrentCamera
+        
+        -- Получаем позицию корня
+        local rootPosition, rootVisible = camera:WorldToViewportPoint(rootPart.Position)
+        
+        if rootVisible then
+            -- Вычисляем размеры бокса
+            local boxSize = Vector2.new(ESPBoxWidth, ESPBoxHeight)
+            -- Позиционируем внизу персонажа (под ногами)
+            local boxPosition = Vector2.new(rootPosition.X - boxSize.X/2, rootPosition.Y - boxSize.Y/2)
+            
+            box.Size = boxSize
+            box.Position = boxPosition
+            box.Visible = true
+            box.Color = ESPBoxColor
+            
+            -- Текст с именем выше бокса
+            nameText.Position = Vector2.new(rootPosition.X - (#player.Name * 3), boxPosition.Y - 20)
+            nameText.Visible = true
+            nameText.Color = ESPTextColor
+        else
+            box.Visible = false
+            nameText.Visible = false
+        end
+    end
+    
+    local connection = game:GetService("RunService").RenderStepped:Connect(update)
+    ESPParts[player] = {box = box, text = nameText, connection = connection}
+    table.insert(ESPConnections, connection)
+end
+
+local function ClearESP()
+    for _, connection in pairs(ESPConnections) do
+        if connection then
+            connection:Disconnect()
+        end
+    end
+    ESPConnections = {}
+    
+    for player, parts in pairs(ESPParts) do
+        if parts then
+            if parts.box and parts.box.Remove then
+                parts.box:Remove()
+            end
+            if parts.text and parts.text.Remove then
+                parts.text:Remove()
+            end
+            if parts.connection then
+                parts.connection:Disconnect()
+            end
+        end
+    end
+    ESPParts = {}
+end
+
+local function ToggleESP()
+    if ESPEnabled then
+        ClearESP()
+        -- Создаем ESP для всех игроков
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Player then
+                CreateESP(player)
+            end
+        end
+        -- Отслеживаем новых игроков
+        local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+            if ESPEnabled then
+                CreateESP(player)
+            end
+        end)
+        table.insert(ESPConnections, playerAddedConnection)
+        
+        -- Отслеживаем выход игроков
+        local playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
+            if ESPParts[player] then
+                if ESPParts[player].box and ESPParts[player].box.Remove then
+                    ESPParts[player].box:Remove()
+                end
+                if ESPParts[player].text and ESPParts[player].text.Remove then
+                    ESPParts[player].text:Remove()
+                end
+                ESPParts[player] = nil
+            end
+        end)
+        table.insert(ESPConnections, playerRemovingConnection)
+        
+        -- Отслеживаем изменение персонажей
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Player then
+                local characterAddedConnection = player.CharacterAdded:Connect(function()
+                    if ESPEnabled then
+                        task.wait(0.5)
+                        CreateESP(player)
+                    end
+                end)
+                table.insert(ESPConnections, characterAddedConnection)
+            end
+        end
+    else
+        ClearESP()
+    end
+end
+
+local function UpdateESP()
+    if ESPEnabled then
+        ClearESP()
+        ToggleESP()
+    end
+end
+
+-- Load saved settings
+local function LoadSavedSettings()
+    -- Загрузка сохраненных значений скорости
+    if pcall(function() return Window:GetConfiguration().DesiredWalkSpeed end) then
+        local saved = Window:GetConfiguration().DesiredWalkSpeed
+        if saved then
+            DesiredWalkSpeed = saved
+            SpeedInput:Set(saved)
+        end
+    end
+    
+    if pcall(function() return Window:GetConfiguration().OriginalWalkSpeed end) then
+        local saved = Window:GetConfiguration().OriginalWalkSpeed
+        if saved then
+            OriginalWalkSpeed = saved
+            BaseSpeedInput:Set(saved)
+        end
+    end
+    
+    if pcall(function() return Window:GetConfiguration().DesiredJumpHeight end) then
+        local saved = Window:GetConfiguration().DesiredJumpHeight
+        if saved then
+            DesiredJumpHeight = saved
+            JumpInput:Set(saved)
+        end
+    end
+    
+    if pcall(function() return Window:GetConfiguration().OriginalJumpHeight end) then
+        local saved = Window:GetConfiguration().OriginalJumpHeight
+        if saved then
+            OriginalJumpHeight = saved
+            BaseJumpInput:Set(saved)
+        end
+    end
+    
+    if pcall(function() return Window:GetConfiguration().FlySpeed end) then
+        local saved = Window:GetConfiguration().FlySpeed
+        if saved then
+            FlySpeed = saved
+            FlySpeedInput:Set(saved)
+        end
+    end
+    
+    if pcall(function() return Window:GetConfiguration().SpinBotSpeed end) then
+        local saved = Window:GetConfiguration().SpinBotSpeed
+        if saved then
+            SpinBotSpeed = saved
+            SpinBotSpeedInput:Set(saved)
+        end
+    end
+    
+    if pcall(function() return Window:GetConfiguration().ESPBoxWidth end) then
+        local saved = Window:GetConfiguration().ESPBoxWidth
+        if saved then
+            ESPBoxWidth = saved
+            ESPBoxWidthInput:Set(saved)
+        end
+    end
+    
+    if pcall(function() return Window:GetConfiguration().ESPBoxHeight end) then
+        local saved = Window:GetConfiguration().ESPBoxHeight
+        if saved then
+            ESPBoxHeight = saved
+            ESPBoxHeightInput:Set(saved)
+        end
+    end
+    
+    -- Применяем текущие значения
+    Humanoid.WalkSpeed = SpeedEnabled and DesiredWalkSpeed or OriginalWalkSpeed
+    Humanoid.JumpHeight = JumpEnabled and DesiredJumpHeight or OriginalJumpHeight
+end
+
+-- UI Elements
+local SpeedSection = MainTab:CreateSection("Speed and Jump")
+
+local SpeedToggle = MainTab:CreateToggle({
+    Name = "Speed Modifier",
+    CurrentValue = false,
+    Flag = "SpeedToggle",
+    Callback = function(value)
+        SpeedEnabled = value
+        if SpeedEnabled then
+            Humanoid.WalkSpeed = DesiredWalkSpeed
+        else
+            Humanoid.WalkSpeed = OriginalWalkSpeed
+        end
+        
+        if SpeedEnabled or JumpEnabled then
+            StartSpeedJumpLoop()
+        else
+            StopSpeedJumpLoop()
+        end
+    end
 })
 
-WalkSpeedToggle = U:CreateToggle({
-    Name = "Apply Walk Speed?",
-    CurrentValue = _G.WalkSpeedEnabled,
-    Flag = "WalkSpeedToggle",
-    Callback = function(Value)
-        _G.WalkSpeedEnabled = Value
-    end,
+local SpeedInput = MainTab:CreateInput({
+    Name = "Desired Speed (when enabled)",
+    PlaceholderText = tostring(DesiredWalkSpeed),
+    RemoveTextAfterFocusLost = false,
+    Flag = "DesiredWalkSpeed",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            DesiredWalkSpeed = num
+            if SpeedEnabled then
+                Humanoid.WalkSpeed = DesiredWalkSpeed
+            end
+        end
+    end
 })
 
-JumpHeightToggle = U:CreateToggle({
-    Name = "Apply Jump Height?",
-    CurrentValue = _G.JumpHeightEnabled,
-    Flag = "JumpHeightToggle",
-    Callback = function(Value)
-        _G.JumpHeightEnabled = Value
-    end,
+local BaseSpeedInput = MainTab:CreateInput({
+    Name = "Base Speed (when disabled)",
+    PlaceholderText = tostring(OriginalWalkSpeed),
+    RemoveTextAfterFocusLost = false,
+    Flag = "OriginalWalkSpeed",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            OriginalWalkSpeed = num
+            if not SpeedEnabled then
+                Humanoid.WalkSpeed = OriginalWalkSpeed
+            end
+        end
+    end
 })
 
-WalkSpeedInput:Set(tostring(_G.WalkSpeed))
-JumpHeightInput:Set(tostring(_G.JumpHeight))
-
-local ResetButton = U:CreateButton({
-    Name = "Reset movement.",
-    Callback = function()
-        setWalkSpeed(16)
-        setJumpHeight(7.2)
-    end,
+local JumpToggle = MainTab:CreateToggle({
+    Name = "Jump Modifier",
+    CurrentValue = false,
+    Flag = "JumpToggle",
+    Callback = function(value)
+        JumpEnabled = value
+        if JumpEnabled then
+            Humanoid.JumpHeight = DesiredJumpHeight
+        else
+            Humanoid.JumpHeight = OriginalJumpHeight
+        end
+        
+        if SpeedEnabled or JumpEnabled then
+            StartSpeedJumpLoop()
+        else
+            StopSpeedJumpLoop()
+        end
+    end
 })
 
-local Section0 = U:CreateSection("Fly.")
+local JumpInput = MainTab:CreateInput({
+    Name = "Desired Jump Height (when enabled)",
+    PlaceholderText = tostring(DesiredJumpHeight),
+    RemoveTextAfterFocusLost = false,
+    Flag = "DesiredJumpHeight",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            DesiredJumpHeight = num
+            if JumpEnabled then
+                Humanoid.JumpHeight = DesiredJumpHeight
+            end
+        end
+    end
+})
 
-Ftoggle = U:CreateToggle({
-    Name = "Fly",
+local BaseJumpInput = MainTab:CreateInput({
+    Name = "Base Jump Height (when disabled)",
+    PlaceholderText = tostring(OriginalJumpHeight),
+    RemoveTextAfterFocusLost = false,
+    Flag = "OriginalJumpHeight",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            OriginalJumpHeight = num
+            if not JumpEnabled then
+                Humanoid.JumpHeight = OriginalJumpHeight
+            end
+        end
+    end
+})
+
+local FlySection = MainTab:CreateSection("Flight")
+
+local FlyToggle = MainTab:CreateToggle({
+    Name = "Flight",
     CurrentValue = false,
     Flag = "FlyToggle",
-    Callback = function(Value)
-        fly = Value
-        if Value then
-            Rayfield:Notify({
-                Title = "Fly",
-                Content = "Fly Enabled",
-                Duration = 2,
-                Image = 4483362458
-            })
-        else
-            Rayfield:Notify({
-                Title = "Fly",
-                Content = "Fly Disabled",
-                Duration = 2,
-                Image = 4483362458
-            })
-        end
-    end,
+    Callback = function(value)
+        FlyEnabled = value
+        Fly()
+    end
 })
 
-local Fspeed = U:CreateInput({
-   Name = "Fly Speed",
-   CurrentValue = "50",
-   PlaceholderText = "",
-   RemoveTextAfterFocusLost = false,
-   Flag = "FlySpeed",
-    Callback = function(Value)
-        flyspeed = Value
-    end,
-})
-
-local Section1 = U:CreateSection("TP To Player.")
-
-local Input = U:CreateInput({
-    Name = "Teleport to Player",
-    PlaceholderText = "Enter username.",
+local FlySpeedInput = MainTab:CreateInput({
+    Name = "Flight Speed",
+    PlaceholderText = tostring(FlySpeed),
     RemoveTextAfterFocusLost = false,
-    Callback = function(Text)
-        local targetPlayer = FindPlayerByName(Text)
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            game.Players.LocalPlayer.Character:SetPrimaryPartCFrame(targetPlayer.Character.HumanoidRootPart.CFrame)
-            Rayfield:Notify({
-                Title = "Teleport Success",
-                Content = "Teleported to ".. targetPlayer.Name,
-                Duration = 6.5,
-                Image = 4483362458,
-            })
-        else
-            Rayfield:Notify({
-                Title = "Teleport Failed",
-                Content = "Player not found or unavailable",
-                Duration = 6.5,
-                Image = 4483362458,
-            })
+    Flag = "FlySpeed",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            FlySpeed = num
         end
-    end,
+    end
 })
 
---[[
-██╗░░██╗░█████╗░████████╗██╗░░██╗███████╗██╗░░░██╗░██████╗
-██║░░██║██╔══██╗╚══██╔══╝██║░██╔╝██╔════╝╚██╗░██╔╝██╔════╝
-███████║██║░░██║░░░██║░░░█████═╝░█████╗░░░╚████╔╝░╚█████╗░
-██╔══██║██║░░██║░░░██║░░░██╔═██╗░██╔══╝░░░░╚██╔╝░░░╚═══██╗
-██║░░██║╚█████╔╝░░░██║░░░██║░╚██╗███████╗░░░██║░░░██████╔╝
-╚═╝░░╚═╝░╚════╝░░░░╚═╝░░░╚═╝░░╚═╝╚══════╝░░░╚═╝░░░╚═════╝░]]
+local NoclipToggle = MainTab:CreateToggle({
+    Name = "Noclip",
+    CurrentValue = false,
+    Flag = "NoclipToggle",
+    Callback = function(value)
+        NoclipEnabled = value
+        StartNoclip()
+    end
+})
 
-local Keybind = H:CreateKeybind({
-    Name = "Noclip Hotkey",
-    CurrentKeybind = "N",
-    HoldToInteract = false,
-    Flag = "NBind",
+local SpinBotSection = MainTab:CreateSection("SpinBot")
+
+local SpinBotToggle = MainTab:CreateToggle({
+    Name = "SpinBot",
+    CurrentValue = false,
+    Flag = "SpinBotToggle",
+    Callback = function(value)
+        SpinBotEnabled = value
+        if SpinBotEnabled then
+            StartSpinBot()
+        else
+            StopSpinBot()
+        end
+    end
+})
+
+local SpinBotSpeedInput = MainTab:CreateInput({
+    Name = "Spin Speed (rotations per second)",
+    PlaceholderText = tostring(SpinBotSpeed),
+    RemoveTextAfterFocusLost = false,
+    Flag = "SpinBotSpeed",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            SpinBotSpeed = num
+        end
+    end
+})
+
+-- Visual Settings
+local VisualSection = VisualTab:CreateSection("Visual Effects")
+
+local FullbrightToggle = VisualTab:CreateToggle({
+    Name = "Fullbright",
+    CurrentValue = false,
+    Flag = "FullbrightToggle",
+    Callback = function(value)
+        FullbrightEnabled = value
+        ApplyFullbright()
+    end
+})
+
+local NoFogToggle = VisualTab:CreateToggle({
+    Name = "No Fog",
+    CurrentValue = false,
+    Flag = "NoFogToggle",
+    Callback = function(value)
+        NoFogEnabled = value
+        ApplyNoFog()
+    end
+})
+
+local ESPSubSection = VisualTab:CreateSection("ESP Settings")
+
+local ESPToggle = VisualTab:CreateToggle({
+    Name = "ESP",
+    CurrentValue = false,
+    Flag = "ESPToggle",
+    Callback = function(value)
+        ESPEnabled = value
+        ToggleESP()
+    end
+})
+
+local ESPTeamCheckToggle = VisualTab:CreateToggle({
+    Name = "Team Check (ignore teammates)",
+    CurrentValue = true,
+    Flag = "ESPTeamCheckToggle",
+    Callback = function(value)
+        ESPTeamCheck = value
+        UpdateESP()
+    end
+})
+
+local ESPTransparencySlider = VisualTab:CreateSlider({
+    Name = "ESP Transparency",
+    Range = {0, 1},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 0.8,
+    Flag = "ESPTransparencySlider",
+    Callback = function(value)
+        ESPTransparency = value
+        UpdateESP()
+    end
+})
+
+local ESPColorSection = VisualTab:CreateSection("ESP Color Settings")
+
+local ESPBoxColorPicker = VisualTab:CreateColorPicker({
+    Name = "ESP Box Color",
+    Color = Color3.fromRGB(255, 0, 0),
+    Flag = "ESPBoxColorPicker",
+    Callback = function(color)
+        ESPBoxColor = color
+        UpdateESP()
+    end
+})
+
+local ESPTextColorPicker = VisualTab:CreateColorPicker({
+    Name = "ESP Text Color",
+    Color = Color3.fromRGB(255, 255, 255),
+    Flag = "ESPTextColorPicker",
+    Callback = function(color)
+        ESPTextColor = color
+        UpdateESP()
+    end
+})
+
+local ESPSizeSection = VisualTab:CreateSection("ESP Size Settings")
+
+local ESPBoxWidthInput = VisualTab:CreateInput({
+    Name = "ESP Box Width",
+    PlaceholderText = tostring(ESPBoxWidth),
+    RemoveTextAfterFocusLost = false,
+    Flag = "ESPBoxWidth",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num and num > 0 then
+            ESPBoxWidth = num
+            UpdateESP()
+        end
+    end
+})
+
+local ESPBoxHeightInput = VisualTab:CreateInput({
+    Name = "ESP Box Height",
+    PlaceholderText = tostring(ESPBoxHeight),
+    RemoveTextAfterFocusLost = false,
+    Flag = "ESPBoxHeight",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num and num > 0 then
+            ESPBoxHeight = num
+            UpdateESP()
+        end
+    end
+})
+
+-- Teleportation
+local TeleportSection = TeleportTab:CreateSection("Teleport to Player")
+
+-- Dropdown для выбора игроков
+local PlayersDropdown = TeleportTab:CreateDropdown({
+    Name = "Select Player",
+    Options = {},
+    CurrentOption = "",
+    Flag = "PlayersDropdown",
+    Callback = function(option)
+        TeleportTab.PlayerName = option
+        PlayerNameInput:Set(option)
+    end
+})
+
+-- Функция для обновления списка игроков
+local function UpdatePlayersList()
+    local playerNames = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Player then
+            table.insert(playerNames, player.Name)
+        end
+    end
+    PlayersDropdown:Refresh(playerNames, true)
+end
+
+-- Кнопка обновления списка игроков
+local UpdatePlayersButton = TeleportTab:CreateButton({
+    Name = "Update Players List",
     Callback = function()
-        Ntoggle:Set(not NoclipEnabled)
-    end,
+        UpdatePlayersList()
+        Rayfield:Notify({
+            Title = "Players List Updated",
+            Content = "Player list has been refreshed",
+            Duration = 3,
+            Image = 4483362458
+        })
+    end
 })
 
--- Добавленные бинды для WalkSpeedToggle, JumpHeightToggle и Ftoggle
-local WalkSpeedKeybind = H:CreateKeybind({
-    Name = "WalkSpeed Toggle Hotkey",
-    CurrentKeybind = "V",
-    HoldToInteract = false,
-    Flag = "WalkSpeedKeybind",
+local PlayerNameInput = TeleportTab:CreateInput({
+    Name = "Player Name",
+    PlaceholderText = "Enter username",
+    RemoveTextAfterFocusLost = false,
+    Flag = "PlayerNameInput",
+    Callback = function(text)
+        TeleportTab.PlayerName = text
+    end
+})
+
+local TeleportButton = TeleportTab:CreateButton({
+    Name = "Teleport",
     Callback = function()
-        WalkSpeedToggle:Set(not WalkSpeedToggle.CurrentValue)
-    end,
+        local playerName = TeleportTab.PlayerName or ""
+        if playerName ~= "" then
+            local targetPlayer = Players:FindFirstChild(playerName)
+            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                Character:FindFirstChild("HumanoidRootPart").CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+                Rayfield:Notify({
+                    Title = "Success",
+                    Content = "Teleported to " .. playerName,
+                    Duration = 3,
+                    Image = 4483362458
+                })
+            else
+                Rayfield:Notify({
+                    Title = "Error",
+                    Content = "Player not found!",
+                    Duration = 3,
+                    Image = 4483362458
+                })
+            end
+        end
+    end
 })
 
-local JumpHeightKeybind = H:CreateKeybind({
-    Name = "JumpHeight Toggle Hotkey",
-    CurrentKeybind = "B",
-    HoldToInteract = false,
-    Flag = "JumpHeightKeybind",
+local FastTeleportToggle = TeleportTab:CreateToggle({
+    Name = "Fast Teleport (Follow)",
+    CurrentValue = false,
+    Flag = "FastTeleportToggle",
+    Callback = function(value)
+        if value then
+            TeleportTab.FastTeleportLoop = game:GetService("RunService").Heartbeat:Connect(function()
+                local playerName = TeleportTab.PlayerName or ""
+                if playerName ~= "" then
+                    local targetPlayer = Players:FindFirstChild(playerName)
+                    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        Character:FindFirstChild("HumanoidRootPart").CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+                    end
+                end
+            end)
+        else
+            if TeleportTab.FastTeleportLoop then
+                TeleportTab.FastTeleportLoop:Disconnect()
+                TeleportTab.FastTeleportLoop = nil
+            end
+        end
+    end
+})
+
+-- Hotkeys
+local KeybindSection = KeybindTab:CreateSection("Keybind Settings")
+
+local function CreateKeybind(name, flag, defaultKey, callback)
+    KeybindTab:CreateKeybind({
+        Name = name,
+        CurrentKeybind = defaultKey,
+        HoldToInteract = false,
+        Flag = flag,
+        Callback = function(key)
+            callback(key)
+        end
+    })
+end
+
+CreateKeybind("Speed", "SpeedKeybind", "U", function(key)
+    SpeedEnabled = not SpeedEnabled
+    SpeedToggle:Set(SpeedEnabled)
+    if SpeedEnabled then
+        Humanoid.WalkSpeed = DesiredWalkSpeed
+    else
+        Humanoid.WalkSpeed = OriginalWalkSpeed
+    end
+    if SpeedEnabled or JumpEnabled then
+        StartSpeedJumpLoop()
+    else
+        StopSpeedJumpLoop()
+    end
+end)
+
+CreateKeybind("Jump", "JumpKeybind", "J", function(key)
+    JumpEnabled = not JumpEnabled
+    JumpToggle:Set(JumpEnabled)
+    if JumpEnabled then
+        Humanoid.JumpHeight = DesiredJumpHeight
+    else
+        Humanoid.JumpHeight = OriginalJumpHeight
+    end
+    if SpeedEnabled or JumpEnabled then
+        StartSpeedJumpLoop()
+    else
+        StopSpeedJumpLoop()
+    end
+end)
+
+CreateKeybind("Flight", "FlyKeybind", "F", function(key)
+    FlyEnabled = not FlyEnabled
+    FlyToggle:Set(FlyEnabled)
+    Fly()
+end)
+
+CreateKeybind("Noclip", "NoclipKeybind", "N", function(key)
+    NoclipEnabled = not NoclipEnabled
+    NoclipToggle:Set(NoclipEnabled)
+    StartNoclip()
+end)
+
+CreateKeybind("Fullbright", "FullbrightKeybind", "B", function(key)
+    FullbrightEnabled = not FullbrightEnabled
+    FullbrightToggle:Set(FullbrightEnabled)
+    ApplyFullbright()
+end)
+
+CreateKeybind("No Fog", "NoFogKeybind", "M", function(key)
+    NoFogEnabled = not NoFogEnabled
+    NoFogToggle:Set(NoFogEnabled)
+    ApplyNoFog()
+end)
+
+CreateKeybind("Teleport", "TeleportKeybind", "T", function(key)
+    local playerName = TeleportTab.PlayerName or ""
+    if playerName ~= "" then
+        local targetPlayer = Players:FindFirstChild(playerName)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            Character:FindFirstChild("HumanoidRootPart").CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+        end
+    end
+end)
+
+CreateKeybind("SpinBot", "SpinBotKeybind", "G", function(key)
+    SpinBotEnabled = not SpinBotEnabled
+    SpinBotToggle:Set(SpinBotEnabled)
+    if SpinBotEnabled then
+        StartSpinBot()
+    else
+        StopSpinBot()
+    end
+end)
+
+CreateKeybind("ESP", "ESPKeybind", "E", function(key)
+    ESPEnabled = not ESPEnabled
+    ESPToggle:Set(ESPEnabled)
+    ToggleESP()
+end)
+
+-- Load Scripts
+local LoadSection = LoadTab:CreateSection("External Scripts")
+
+local REMButton = LoadTab:CreateButton({
+    Name = "Load Remote Exploit Maker [REM]",
     Callback = function()
-        JumpHeightToggle:Set(not JumpHeightToggle.CurrentValue)
-    end,
+        loadstring(game:HttpGet("https://e-vil.com/anbu/rem.lua"))()
+        Rayfield:Notify({
+            Title = "Script Loaded",
+            Content = "Remote Exploit Maker loaded successfully!",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
 })
 
-local FlyKeybind = H:CreateKeybind({
-    Name = "Fly Toggle Hotkey",
-    CurrentKeybind = "F",
-    HoldToInteract = false,
-    Flag = "FlyKeybind",
+local TouchFlingButton = LoadTab:CreateButton({
+    Name = "Load Touch Fling",
     Callback = function()
-        Ftoggle:Set(not Ftoggle.CurrentValue)
-    end,
+        loadstring(game:HttpGet("https://pastebin.com/raw/LgZwZ7ZB",true))()
+        Rayfield:Notify({
+            Title = "Script Loaded",
+            Content = "Touch Fling loaded successfully!",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
 })
 
-Player.CharacterAdded:Connect(function(character)
+local PosManagerButton = LoadTab:CreateButton({
+    Name = "Load Pos. Manager",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/K-O-T/scriptblox/refs/heads/main/PositionManager"))()
+        Rayfield:Notify({
+            Title = "Script Loaded",
+            Content = "Position Manager loaded successfully!",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+})
+
+local CombatButton = LoadTab:CreateButton({
+    Name = "Load Combat.cc",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/Combat/refs/heads/main/CombatAimbot"))()
+        Rayfield:Notify({
+            Title = "Script Loaded",
+            Content = "Combat.cc loaded successfully!",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+})
+
+-- Event Handlers
+Players.LocalPlayer.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = Character:WaitForChild("Humanoid")
+    
+    -- Перезапускаем петли если они были активны
+    if SpeedEnabled or JumpEnabled then
+        StartSpeedJumpLoop()
+    end
+    if FlyEnabled then
+        Fly()
+    end
     if NoclipEnabled then
-        wait(1)
+        StartNoclip()
+    end
+    if SpinBotEnabled then
+        StartSpinBot()
+    end
+end)
+
+-- Отслеживаем добавление новых игроков для ESP
+Players.PlayerAdded:Connect(function(player)
+    if ESPEnabled and player ~= Player then
+        CreateESP(player)
+    end
+    -- Обновляем список игроков в dropdown
+    UpdatePlayersList()
+end)
+
+-- Отслеживаем выход игроков
+Players.PlayerRemoving:Connect(function(player)
+    if player == Player then
+        if FullbrightEnabled then
+            game.Lighting.Brightness = OriginalBrightness
+            game.Lighting.OutdoorAmbient = OriginalOutdoorAmbient
+            game.Lighting.ClockTime = OriginalClockTime
+        end
+        if NoFogEnabled then
+            game.Lighting.FogEnd = OriginalFogEnd
+        end
         if NoclipConnection then
             NoclipConnection:Disconnect()
         end
-        NoclipConnection = game:GetService("RunService").Stepped:Connect(NoclipLoop)
+        if SpeedJumpConnection then
+            SpeedJumpConnection:Disconnect()
+        end
+        if SpinBotConnection then
+            SpinBotConnection:Disconnect()
+        end
+        if FlightLoop then
+            FlightLoop:Disconnect()
+        end
+        ClearESP()
+    else
+        -- Обновляем список игроков в dropdown
+        UpdatePlayersList()
     end
 end)
+
+-- Initialization
+Humanoid.WalkSpeed = OriginalWalkSpeed
+Humanoid.JumpHeight = OriginalJumpHeight
+ApplyFullbright()
+ApplyNoFog()
+UpdatePlayersList() -- Инициализируем список игроков
+
+-- Загружаем сохраненные настройки
+LoadSavedSettings()
+
+-- Load notification
+Rayfield:Notify({
+    Title = "Control Panel",
+    Content = "Script loaded successfully!",
+    Duration = 5,
+    Image = 4483362458
+})
