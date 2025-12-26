@@ -1,8 +1,16 @@
--- Rewrite and new functions!
+-- Obfuscate is soon.
+
+local WhitelistedUsers = {
+    932888361,
+    1966604434,
+    9706650726
+} -- Add your user ID to bypass key system lol
+
+local player = game.Players.LocalPlayer
+local isWhitelisted = table.find(WhitelistedUsers, player.UserId) ~= nil
 
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Создание окна
 local Window = Rayfield:CreateWindow({
     Name = "[Universal]",
     LoadingTitle = "Loading...",
@@ -13,21 +21,29 @@ local Window = Rayfield:CreateWindow({
         FileName = "Config"
     },
     Discord = {
-        Enabled = true,
-        Invite = "discord.gg/xe-no",
+        Enabled = not isWhitelisted,
+        Invite = "discord.gg/jHNpM7tJo",
         RememberJoins = false
     },
-    KeySystem = false
+    KeySystem = not isWhitelisted, 
+    
+    KeySettings = {
+        Title = "Wait a minute,",
+        Subtitle = "Do u have a key?",
+        Note = "Join DSC Server for key",
+        FileName = "ribolovniy_key", 
+        SaveKey = true, 
+        GrabKeyFromSite = false,
+        Key = {"K"} -- Your secret key(s)
+    }
 })
 
--- Tabs
 local MainTab = Window:CreateTab("Main", 4483362458)
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 local TeleportTab = Window:CreateTab("TP", 4483362458)
 local KeybindTab = Window:CreateTab("Hotkeys", 4483362458)
 local LoadTab = Window:CreateTab("Load Scripts", 4483362458)
 
--- Variables
 local Player = game:GetService("Players").LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
