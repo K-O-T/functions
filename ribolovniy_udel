@@ -1,18 +1,19 @@
 -- Obfuscate is soon.
 
 local WhitelistedUsers = {
-    932888361,
-    1966604434,
-    9706650726
+    1932888361,
+    11966604434,
+    19706650726
 } -- Add your user ID to bypass key system lol
 
 local player = game.Players.LocalPlayer
 local isWhitelisted = table.find(WhitelistedUsers, player.UserId) ~= nil
 
+-- Загрузка Rayfield
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "[Universal]",
+    Name = "[UNIVERSAL] ~1.3",
     LoadingTitle = "Loading...",
     LoadingSubtitle = "by K",
     ConfigurationSaving = {
@@ -21,34 +22,36 @@ local Window = Rayfield:CreateWindow({
         FileName = "Config"
     },
     Discord = {
-        Enabled = not isWhitelisted,
-        Invite = "discord.gg/jHNpM7tJo",
-        RememberJoins = false
+        Enabled = not isWhitelised,
+        Invite = "noinvitelink",
+        RememberJoins = true
     },
-    KeySystem = not isWhitelisted, 
-    
+    KeySystem = not isWhitelised,
     KeySettings = {
-        Title = "Wait a minute,",
-        Subtitle = "Do u have a key?",
-        Note = "Join DSC Server for key",
-        FileName = "ribolovniy_key", 
-        SaveKey = true, 
-        GrabKeyFromSite = false,
-        Key = {"K"} -- Your secret key(s)
+        Title = "Auth Required",
+        Subtitle = "Enter key to continue",
+        Note = "Key: 1488",
+        FileName = "ControlPanelKey",
+        SaveKey = true,
+        Key = {"1488","Key"}
     }
 })
 
+-- Tabs
 local MainTab = Window:CreateTab("Main", 4483362458)
 local VisualTab = Window:CreateTab("Visual", 4483362458)
 local TeleportTab = Window:CreateTab("TP", 4483362458)
 local KeybindTab = Window:CreateTab("Hotkeys", 4483362458)
 local LoadTab = Window:CreateTab("Load Scripts", 4483362458)
 
+-- Variables
 local Player = game:GetService("Players").LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local UIS = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 
 local OriginalWalkSpeed = 16
 local OriginalJumpHeight = 7.2
@@ -60,30 +63,42 @@ local OriginalClockTime = game.Lighting.ClockTime
 local SpeedEnabled = false
 local JumpEnabled = false
 local FlyEnabled = false
+local FlyCFrameEnabled = false
 local NoclipEnabled = false
 local FullbrightEnabled = false
 local NoFogEnabled = false
 local SpinBotEnabled = false
-local ESPEnabled = false
-local ESPTeamCheck = true
-local ESPTransparency = 0.8
-local ESPBoxWidth = 100
-local ESPBoxHeight = 200
-local ESPBoxColor = Color3.new(1, 0, 0)
-local ESPTextColor = Color3.new(1, 1, 1)
+local SpeedCFrameEnabled = false
+
+-- ESP Settings
+local ESPTeammates = false
+local ESPBox = false
+local ESPOutline = false
+local ESPName = false
+local ESPDistance = false
+local ESPBoxColor = Color3.fromRGB(0, 255, 0)
+local ESPTextColor = Color3.fromRGB(255, 255, 255)
+local ESPTransparency = 0.5
+
+-- Teleport Settings
+local TeleportUntilDies = false
+local TeleportChangeAfterDeath = false
 
 local FlySpeed = 50
 local DesiredWalkSpeed = 50
 local DesiredJumpHeight = 50
-local SpinBotSpeed = 10
+local SpinBotSpeed = 50
+local TeleportOffsetX = 0
+local TeleportOffsetY = 0
+local TeleportOffsetZ = 0
 local FlyVelocity = Vector3.new(0, 0, 0)
 local BodyVelocity
-local NoclipConnection
+local NoclipLoop
 local SpeedJumpConnection
 local SpinBotConnection
-local ESPConnections = {}
-local ESPParts = {}
 local FlightLoop
+local FlyCFrameLoop
+local SpeedCFrameLoop
 
 -- Functions
 local function StartSpeedJumpLoop()
@@ -91,7 +106,7 @@ local function StartSpeedJumpLoop()
         SpeedJumpConnection:Disconnect()
     end
     
-    SpeedJumpConnection = game:GetService("RunService").Heartbeat:Connect(function()
+    SpeedJumpConnection = RunService.Heartbeat:Connect(function()
         if SpeedEnabled then
             Humanoid.WalkSpeed = DesiredWalkSpeed
         else
@@ -113,6 +128,47 @@ local function StopSpeedJumpLoop()
     end
 end
 
+-- Speed CFrame Function
+local function StartSpeedCFrame()
+    if SpeedCFrameLoop then
+        SpeedCFrameLoop:Disconnect()
+    end
+    
+    SpeedCFrameLoop = RunService.Heartbeat:Connect(function()
+        if SpeedCFrameEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
+            local rootPart = Character.HumanoidRootPart
+            local moveDirection = Vector3.new(0, 0, 0)
+            
+            -- Calculate movement direction
+            if UIS:IsKeyDown(Enum.KeyCode.W) then
+                moveDirection = moveDirection + Camera.CFrame.LookVector
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.S) then
+                moveDirection = moveDirection - Camera.CFrame.LookVector
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.A) then
+                moveDirection = moveDirection - Camera.CFrame.RightVector
+            end
+            if UIS:IsKeyDown(Enum.KeyCode.D) then
+                moveDirection = moveDirection + Camera.CFrame.RightVector
+            end
+            
+            -- Normalize and apply speed
+            if moveDirection.Magnitude > 0 then
+                moveDirection = moveDirection.Unit * DesiredWalkSpeed
+                rootPart.CFrame = rootPart.CFrame + moveDirection * RunService.Heartbeat:Wait()
+            end
+        end
+    end)
+end
+
+local function StopSpeedCFrame()
+    if SpeedCFrameLoop then
+        SpeedCFrameLoop:Disconnect()
+        SpeedCFrameLoop = nil
+    end
+end
+
 local function Fly()
     if FlyEnabled then
         if not BodyVelocity then
@@ -127,7 +183,7 @@ local function Fly()
             FlightLoop:Disconnect()
         end
         
-        FlightLoop = game:GetService("RunService").Heartbeat:Connect(function()
+        FlightLoop = RunService.Heartbeat:Connect(function()
             if not FlyEnabled or not Character or not Character:FindFirstChild("HumanoidRootPart") then
                 if FlightLoop then
                     FlightLoop:Disconnect()
@@ -136,7 +192,6 @@ local function Fly()
                 return
             end
             
-            -- Проверяем, не вводит ли игрок текст
             if UIS:GetFocusedTextBox() then
                 if BodyVelocity then
                     BodyVelocity.Velocity = Vector3.new(0, 0, 0)
@@ -187,33 +242,104 @@ local function Fly()
     end
 end
 
-local function StartNoclip()
+-- Fly CFrame Function
+local function StartFlyCFrame()
+    if FlyCFrameLoop then
+        FlyCFrameLoop:Disconnect()
+    end
+    
+    FlyCFrameLoop = RunService.Heartbeat:Connect(function()
+        if not FlyCFrameEnabled or not Character or not Character:FindFirstChild("HumanoidRootPart") then
+            if FlyCFrameLoop then
+                FlyCFrameLoop:Disconnect()
+                FlyCFrameLoop = nil
+            end
+            return
+        end
+        
+        if UIS:GetFocusedTextBox() then
+            return
+        end
+        
+        local rootPart = Character.HumanoidRootPart
+        local moveDirection = Vector3.new(0, 0, 0)
+        
+        -- Calculate movement direction
+        if UIS:IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + Camera.CFrame.LookVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - Camera.CFrame.LookVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - Camera.CFrame.RightVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + Camera.CFrame.RightVector
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then
+            moveDirection = moveDirection + Vector3.new(0, 1, 0)
+        end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then
+            moveDirection = moveDirection - Vector3.new(0, 1, 0)
+        end
+        
+        -- Normalize and apply speed
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit * FlySpeed
+            rootPart.CFrame = rootPart.CFrame + moveDirection * RunService.Heartbeat:Wait()
+        end
+    end)
+end
+
+local function StopFlyCFrame()
+    if FlyCFrameLoop then
+        FlyCFrameLoop:Disconnect()
+        FlyCFrameLoop = nil
+    end
+end
+
+local function ToggleNoclip()
     if NoclipEnabled then
-        NoclipConnection = game:GetService("RunService").Stepped:Connect(function()
+        -- Отключаем коллизию для всех частей персонажа
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+        -- Отключаем коллизию для HumanoidRootPart
+        if Character:FindFirstChild("HumanoidRootPart") then
+            Character.HumanoidRootPart.CanCollide = false
+        end
+        
+        -- Создаем петлю для постоянного отключения коллизии
+        NoclipLoop = RunService.Stepped:Connect(function()
             if NoclipEnabled and Character then
-                -- Отключаем коллизию у всего персонажа
                 for _, part in pairs(Character:GetDescendants()) do
-                    if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
+                    if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
                 end
-                -- Также отключаем коллизию у HumanoidRootPart
                 if Character:FindFirstChild("HumanoidRootPart") then
                     Character.HumanoidRootPart.CanCollide = false
                 end
             end
         end)
     else
-        if NoclipConnection then
-            NoclipConnection:Disconnect()
-            NoclipConnection = nil
+        -- Включаем коллизию обратно
+        if NoclipLoop then
+            NoclipLoop:Disconnect()
+            NoclipLoop = nil
         end
+        
         if Character then
-            -- Восстанавливаем коллизию
             for _, part in pairs(Character:GetDescendants()) do
-                if part:IsA("BasePart") or part:IsA("MeshPart") or part:IsA("UnionOperation") then
+                if part:IsA("BasePart") then
                     part.CanCollide = true
                 end
+            end
+            if Character:FindFirstChild("HumanoidRootPart") then
+                Character.HumanoidRootPart.CanCollide = true
             end
         end
     end
@@ -253,17 +379,19 @@ local function ApplyNoFog()
     end
 end
 
+-- SpinBot на основе предоставленного скрипта
 local function StartSpinBot()
     if SpinBotConnection then
         SpinBotConnection:Disconnect()
     end
     
-    SpinBotConnection = game:GetService("RunService").Heartbeat:Connect(function()
+    SpinBotConnection = RunService.Heartbeat:Connect(function()
         if SpinBotEnabled and Character and Character:FindFirstChild("HumanoidRootPart") then
-            local currentCFrame = Character.HumanoidRootPart.CFrame
-            local rotationAmount = SpinBotSpeed * 6.28318 -- 2π радиан в полном обороте
-            local newCFrame = currentCFrame * CFrame.Angles(0, rotationAmount * game:GetService("RunService").Heartbeat:Wait(), 0)
-            Character.HumanoidRootPart.CFrame = newCFrame
+            -- Получаем HumanoidRootPart
+            local rootPart = Character.HumanoidRootPart
+            
+            -- Вращаем персонажа используя CFrame.Angles с математическим радианом
+            rootPart.CFrame = rootPart.CFrame * CFrame.Angles(0, math.rad(SpinBotSpeed), 0)
         end
     end)
 end
@@ -275,162 +403,220 @@ local function StopSpinBot()
     end
 end
 
--- ESP Functions
-local function CreateESP(player)
-    if ESPParts[player] then
-        if ESPParts[player].box and ESPParts[player].box.Remove then
-            ESPParts[player].box:Remove()
-        end
-        if ESPParts[player].text and ESPParts[player].text.Remove then
-            ESPParts[player].text:Remove()
-        end
-    end
+-- Random Target Function
+local function SelectRandomTarget()
+    local players = Players:GetPlayers()
+    if #players <= 1 then return end
     
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then 
-        ESPParts[player] = nil
-        return 
-    end
+    local randomPlayer
+    repeat
+        randomPlayer = players[math.random(1, #players)]
+    until randomPlayer ~= Player
     
-    local team = player.Team
-    local localTeam = Player.Team
+    TeleportTab.PlayerName = randomPlayer.Name
+    PlayerNameInput:Set(randomPlayer.Name)
     
-    -- Проверка команды
-    if ESPTeamCheck and team and localTeam and team == localTeam then
-        return
-    end
-    
-    -- Создаем 2D ESP
-    local box = Drawing.new("Square")
-    box.Visible = false
-    box.Color = ESPBoxColor
-    box.Thickness = 2
-    box.Filled = false
-    box.Transparency = ESPTransparency
-    
-    local nameText = Drawing.new("Text")
-    nameText.Visible = false
-    nameText.Color = ESPTextColor
-    nameText.Size = 14
-    nameText.Text = player.Name
-    nameText.Transparency = ESPTransparency
-    
-    local function update()
-        if not player or not player.Parent or not character or not character:FindFirstChild("HumanoidRootPart") then
-            box:Remove()
-            nameText:Remove()
-            ESPParts[player] = nil
-            return
-        end
-        
-        local rootPart = character.HumanoidRootPart
-        local camera = workspace.CurrentCamera
-        
-        -- Получаем позицию корня
-        local rootPosition, rootVisible = camera:WorldToViewportPoint(rootPart.Position)
-        
-        if rootVisible then
-            -- Вычисляем размеры бокса
-            local boxSize = Vector2.new(ESPBoxWidth, ESPBoxHeight)
-            -- Позиционируем внизу персонажа (под ногами)
-            local boxPosition = Vector2.new(rootPosition.X - boxSize.X/2, rootPosition.Y - boxSize.Y/2)
-            
-            box.Size = boxSize
-            box.Position = boxPosition
-            box.Visible = true
-            box.Color = ESPBoxColor
-            
-            -- Текст с именем выше бокса
-            nameText.Position = Vector2.new(rootPosition.X - (#player.Name * 3), boxPosition.Y - 20)
-            nameText.Visible = true
-            nameText.Color = ESPTextColor
-        else
-            box.Visible = false
-            nameText.Visible = false
-        end
-    end
-    
-    local connection = game:GetService("RunService").RenderStepped:Connect(update)
-    ESPParts[player] = {box = box, text = nameText, connection = connection}
-    table.insert(ESPConnections, connection)
+    Rayfield:Notify({
+        Title = "Random Target",
+        Content = "Selected: " .. randomPlayer.Name,
+        Duration = 3,
+        Image = 4483362458
+    })
 end
 
-local function ClearESP()
+-- ESP Functions
+local ESP = {}
+local ESPConnections = {}
+
+local function shouldESP(player)
+    if player == Player then return false end
+    
+    if not ESPTeammates then
+        local localTeam = Player.Team
+        local playerTeam = player.Team
+        
+        if localTeam and playerTeam and localTeam == playerTeam then
+            return false
+        end
+    end
+    
+    return true
+end
+
+local function getESPColor(player)
+    if player.Team then
+        return player.Team.TeamColor.Color
+    end
+    return ESPBoxColor
+end
+
+local function setupESP(player)
+    if ESP[player] then return end
+    
+    local box = Instance.new("SelectionBox")
+    box.LineThickness = 0.05
+    box.SurfaceTransparency = 1
+    box.Transparency = ESPTransparency
+    box.Parent = workspace
+    
+    local highlight = Instance.new("Highlight")
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = ESPTransparency
+    highlight.Parent = workspace
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0, 200, 0, 40)
+    billboard.AlwaysOnTop = true
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.Parent = workspace
+    
+    local textLabel = Instance.new("TextLabel", billboard)
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Font = Enum.Font.Gotham
+    textLabel.TextStrokeTransparency = 0
+    textLabel.TextSize = 13
+    textLabel.TextColor3 = ESPTextColor
+    
+    ESP[player] = {
+        Box = box,
+        Highlight = highlight,
+        Billboard = billboard,
+        TextLabel = textLabel
+    }
+end
+
+local function removeESP(player)
+    if ESP[player] then
+        for _, obj in pairs(ESP[player]) do
+            if obj and obj.Parent then
+                obj:Destroy()
+            end
+        end
+        ESP[player] = nil
+    end
+end
+
+local function clearESP()
+    for player, _ in pairs(ESP) do
+        removeESP(player)
+    end
+    ESP = {}
+    
     for _, connection in pairs(ESPConnections) do
         if connection then
             connection:Disconnect()
         end
     end
     ESPConnections = {}
-    
-    for player, parts in pairs(ESPParts) do
-        if parts then
-            if parts.box and parts.box.Remove then
-                parts.box:Remove()
-            end
-            if parts.text and parts.text.Remove then
-                parts.text:Remove()
-            end
-            if parts.connection then
-                parts.connection:Disconnect()
-            end
-        end
-    end
-    ESPParts = {}
 end
 
-local function ToggleESP()
-    if ESPEnabled then
-        ClearESP()
-        -- Создаем ESP для всех игроков
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= Player then
-                CreateESP(player)
+local function updateESP()
+    if not ESPEnabled then
+        clearESP()
+        return
+    end
+    
+    -- Setup ESP for existing players
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Player then
+            setupESP(player)
+        end
+    end
+    
+    -- Update ESP loop
+    local updateConnection = RunService.RenderStepped:Connect(function()
+        for player, espObj in pairs(ESP) do
+            local character = player.Character
+            local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+            
+            local isVisible = humanoid and humanoid.Health > 0 and humanoidRootPart and shouldESP(player)
+            
+            if isVisible then
+                local color = getESPColor(player)
+                
+                -- Update box
+                espObj.Box.Color3 = color
+                espObj.Box.Visible = ESPBox
+                espObj.Box.Adornee = ESPBox and character or nil
+                espObj.Box.Transparency = ESPTransparency
+                
+                -- Update highlight
+                espObj.Highlight.OutlineColor = color
+                espObj.Highlight.Enabled = ESPOutline
+                espObj.Highlight.Adornee = ESPOutline and character or nil
+                espObj.Highlight.OutlineTransparency = ESPTransparency
+                
+                -- Update billboard
+                local showBillboard = ESPName or ESPDistance
+                espObj.Billboard.Enabled = showBillboard
+                espObj.Billboard.Adornee = showBillboard and humanoidRootPart or nil
+                
+                if showBillboard then
+                    local text = ""
+                    if ESPName then
+                        text = player.Name
+                    end
+                    
+                    if ESPDistance then
+                        local distance = math.floor((Camera.CFrame.Position - humanoidRootPart.Position).Magnitude)
+                        if ESPName then
+                            text = text .. " [" .. distance .. " studs]"
+                        else
+                            text = distance .. " studs"
+                        end
+                    end
+                    
+                    espObj.TextLabel.Text = text
+                    espObj.TextLabel.TextColor3 = ESPTextColor
+                end
+            else
+                espObj.Box.Visible = false
+                espObj.Box.Adornee = nil
+                espObj.Highlight.Enabled = false
+                espObj.Highlight.Adornee = nil
+                espObj.Billboard.Enabled = false
+                espObj.Billboard.Adornee = nil
             end
         end
-        -- Отслеживаем новых игроков
-        local playerAddedConnection = Players.PlayerAdded:Connect(function(player)
+    end)
+    
+    table.insert(ESPConnections, updateConnection)
+end
+
+local function toggleESP()
+    clearESP()
+    
+    if ESPEnabled then
+        updateESP()
+        
+        -- Player added connection
+        local playerAdded = Players.PlayerAdded:Connect(function(player)
             if ESPEnabled then
-                CreateESP(player)
+                setupESP(player)
             end
         end)
-        table.insert(ESPConnections, playerAddedConnection)
+        table.insert(ESPConnections, playerAdded)
         
-        -- Отслеживаем выход игроков
-        local playerRemovingConnection = Players.PlayerRemoving:Connect(function(player)
-            if ESPParts[player] then
-                if ESPParts[player].box and ESPParts[player].box.Remove then
-                    ESPParts[player].box:Remove()
-                end
-                if ESPParts[player].text and ESPParts[player].text.Remove then
-                    ESPParts[player].text:Remove()
-                end
-                ESPParts[player] = nil
-            end
+        -- Player removing connection
+        local playerRemoving = Players.PlayerRemoving:Connect(function(player)
+            removeESP(player)
         end)
-        table.insert(ESPConnections, playerRemovingConnection)
+        table.insert(ESPConnections, playerRemoving)
         
-        -- Отслеживаем изменение персонажей
+        -- Character added connection
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= Player then
-                local characterAddedConnection = player.CharacterAdded:Connect(function()
+                local characterAdded = player.CharacterAdded:Connect(function()
                     if ESPEnabled then
                         task.wait(0.5)
-                        CreateESP(player)
+                        setupESP(player)
                     end
                 end)
-                table.insert(ESPConnections, characterAddedConnection)
+                table.insert(ESPConnections, characterAdded)
             end
         end
-    else
-        ClearESP()
-    end
-end
-
-local function UpdateESP()
-    if ESPEnabled then
-        ClearESP()
-        ToggleESP()
     end
 end
 
@@ -485,37 +671,45 @@ local function LoadSavedSettings()
         end
     end
     
-    if pcall(function() return Window:GetConfiguration().ESPBoxWidth end) then
-        local saved = Window:GetConfiguration().ESPBoxWidth
-        if saved then
-            ESPBoxWidth = saved
-            ESPBoxWidthInput:Set(saved)
-        end
-    end
-    
-    if pcall(function() return Window:GetConfiguration().ESPBoxHeight end) then
-        local saved = Window:GetConfiguration().ESPBoxHeight
-        if saved then
-            ESPBoxHeight = saved
-            ESPBoxHeightInput:Set(saved)
-        end
-    end
-    
     -- Применяем текущие значения
-    Humanoid.WalkSpeed = SpeedEnabled and DesiredWalkSpeed or OriginalWalkSpeed
+    if SpeedCFrameEnabled then
+        StartSpeedCFrame()
+    elseif SpeedEnabled then
+        Humanoid.WalkSpeed = DesiredWalkSpeed
+    else
+        Humanoid.WalkSpeed = OriginalWalkSpeed
+    end
+    
     Humanoid.JumpHeight = JumpEnabled and DesiredJumpHeight or OriginalJumpHeight
+end
+
+-- Teleport with offset
+local function TeleportToPlayerWithOffset(playerName)
+    if playerName ~= "" then
+        local targetPlayer = Players:FindFirstChild(playerName)
+        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local targetCFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+            local offsetCFrame = targetCFrame * CFrame.new(TeleportOffsetX, TeleportOffsetY, TeleportOffsetZ)
+            Character:FindFirstChild("HumanoidRootPart").CFrame = offsetCFrame
+            return true, targetPlayer
+        end
+    end
+    return false, nil
 end
 
 -- UI Elements
 local SpeedSection = MainTab:CreateSection("Speed and Jump")
 
 local SpeedToggle = MainTab:CreateToggle({
-    Name = "Speed Modifier",
+    Name = "Speed Modifier (WalkSpeed)",
     CurrentValue = false,
     Flag = "SpeedToggle",
     Callback = function(value)
         SpeedEnabled = value
         if SpeedEnabled then
+            SpeedCFrameEnabled = false
+            SpeedCFrameToggle:Set(false)
+            StopSpeedCFrame()
             Humanoid.WalkSpeed = DesiredWalkSpeed
         else
             Humanoid.WalkSpeed = OriginalWalkSpeed
@@ -525,6 +719,23 @@ local SpeedToggle = MainTab:CreateToggle({
             StartSpeedJumpLoop()
         else
             StopSpeedJumpLoop()
+        end
+    end
+})
+
+local SpeedCFrameToggle = MainTab:CreateToggle({
+    Name = "Speed Modifier (CFrame)",
+    CurrentValue = false,
+    Flag = "SpeedCFrameToggle",
+    Callback = function(value)
+        SpeedCFrameEnabled = value
+        if SpeedCFrameEnabled then
+            SpeedEnabled = false
+            SpeedToggle:Set(false)
+            StopSpeedJumpLoop()
+            StartSpeedCFrame()
+        else
+            StopSpeedCFrame()
         end
     end
 })
@@ -616,12 +827,46 @@ local BaseJumpInput = MainTab:CreateInput({
 local FlySection = MainTab:CreateSection("Flight")
 
 local FlyToggle = MainTab:CreateToggle({
-    Name = "Flight",
+    Name = "Flight (BodyVelocity)",
     CurrentValue = false,
     Flag = "FlyToggle",
     Callback = function(value)
         FlyEnabled = value
-        Fly()
+        if FlyEnabled then
+            FlyCFrameEnabled = false
+            FlyCFrameToggle:Set(false)
+            StopFlyCFrame()
+            Fly()
+        else
+            if BodyVelocity then
+                BodyVelocity:Destroy()
+                BodyVelocity = nil
+            end
+            if FlightLoop then
+                FlightLoop:Disconnect()
+                FlightLoop = nil
+            end
+        end
+    end
+})
+
+local FlyCFrameToggle = MainTab:CreateToggle({
+    Name = "Flight (CFrame)",
+    CurrentValue = false,
+    Flag = "FlyCFrameToggle",
+    Callback = function(value)
+        FlyCFrameEnabled = value
+        if FlyCFrameEnabled then
+            FlyEnabled = false
+            FlyToggle:Set(false)
+            if BodyVelocity then
+                BodyVelocity:Destroy()
+                BodyVelocity = nil
+            end
+            StartFlyCFrame()
+        else
+            StopFlyCFrame()
+        end
     end
 })
 
@@ -644,7 +889,7 @@ local NoclipToggle = MainTab:CreateToggle({
     Flag = "NoclipToggle",
     Callback = function(value)
         NoclipEnabled = value
-        StartNoclip()
+        ToggleNoclip()
     end
 })
 
@@ -665,7 +910,7 @@ local SpinBotToggle = MainTab:CreateToggle({
 })
 
 local SpinBotSpeedInput = MainTab:CreateInput({
-    Name = "Spin Speed (rotations per second)",
+    Name = "Spin Speed (degrees per frame)",
     PlaceholderText = tostring(SpinBotSpeed),
     RemoveTextAfterFocusLost = false,
     Flag = "SpinBotSpeed",
@@ -708,30 +953,70 @@ local ESPToggle = VisualTab:CreateToggle({
     Flag = "ESPToggle",
     Callback = function(value)
         ESPEnabled = value
-        ToggleESP()
+        toggleESP()
     end
 })
 
-local ESPTeamCheckToggle = VisualTab:CreateToggle({
-    Name = "Team Check (ignore teammates)",
-    CurrentValue = true,
-    Flag = "ESPTeamCheckToggle",
+local ESPBoxToggle = VisualTab:CreateToggle({
+    Name = "Box ESP",
+    CurrentValue = false,
+    Flag = "ESPBoxToggle",
     Callback = function(value)
-        ESPTeamCheck = value
-        UpdateESP()
+        ESPBox = value
+        toggleESP()
+    end
+})
+
+local ESPOutlineToggle = VisualTab:CreateToggle({
+    Name = "Outline ESP",
+    CurrentValue = false,
+    Flag = "ESPOutlineToggle",
+    Callback = function(value)
+        ESPOutline = value
+        toggleESP()
+    end
+})
+
+local ESPNameToggle = VisualTab:CreateToggle({
+    Name = "Show Name",
+    CurrentValue = false,
+    Flag = "ESPNameToggle",
+    Callback = function(value)
+        ESPName = value
+        toggleESP()
+    end
+})
+
+local ESPDistanceToggle = VisualTab:CreateToggle({
+    Name = "Show Distance",
+    CurrentValue = false,
+    Flag = "ESPDistanceToggle",
+    Callback = function(value)
+        ESPDistance = value
+        toggleESP()
+    end
+})
+
+local ESPTeammatesToggle = VisualTab:CreateToggle({
+    Name = "Show Teammates",
+    CurrentValue = false,
+    Flag = "ESPTeammatesToggle",
+    Callback = function(value)
+        ESPTeammates = value
+        toggleESP()
     end
 })
 
 local ESPTransparencySlider = VisualTab:CreateSlider({
     Name = "ESP Transparency",
     Range = {0, 1},
-    Increment = 0.1,
+    Increment = 0.05,
     Suffix = "",
-    CurrentValue = 0.8,
+    CurrentValue = 0.5,
     Flag = "ESPTransparencySlider",
     Callback = function(value)
         ESPTransparency = value
-        UpdateESP()
+        toggleESP()
     end
 })
 
@@ -739,11 +1024,11 @@ local ESPColorSection = VisualTab:CreateSection("ESP Color Settings")
 
 local ESPBoxColorPicker = VisualTab:CreateColorPicker({
     Name = "ESP Box Color",
-    Color = Color3.fromRGB(255, 0, 0),
+    Color = Color3.fromRGB(0, 255, 0),
     Flag = "ESPBoxColorPicker",
     Callback = function(color)
         ESPBoxColor = color
-        UpdateESP()
+        toggleESP()
     end
 })
 
@@ -753,37 +1038,7 @@ local ESPTextColorPicker = VisualTab:CreateColorPicker({
     Flag = "ESPTextColorPicker",
     Callback = function(color)
         ESPTextColor = color
-        UpdateESP()
-    end
-})
-
-local ESPSizeSection = VisualTab:CreateSection("ESP Size Settings")
-
-local ESPBoxWidthInput = VisualTab:CreateInput({
-    Name = "ESP Box Width",
-    PlaceholderText = tostring(ESPBoxWidth),
-    RemoveTextAfterFocusLost = false,
-    Flag = "ESPBoxWidth",
-    Callback = function(text)
-        local num = tonumber(text)
-        if num and num > 0 then
-            ESPBoxWidth = num
-            UpdateESP()
-        end
-    end
-})
-
-local ESPBoxHeightInput = VisualTab:CreateInput({
-    Name = "ESP Box Height",
-    PlaceholderText = tostring(ESPBoxHeight),
-    RemoveTextAfterFocusLost = false,
-    Flag = "ESPBoxHeight",
-    Callback = function(text)
-        local num = tonumber(text)
-        if num and num > 0 then
-            ESPBoxHeight = num
-            UpdateESP()
-        end
+        toggleESP()
     end
 })
 
@@ -827,6 +1082,14 @@ local UpdatePlayersButton = TeleportTab:CreateButton({
     end
 })
 
+-- Random Target Button
+local RandomTargetButton = TeleportTab:CreateButton({
+    Name = "Random Target",
+    Callback = function()
+        SelectRandomTarget()
+    end
+})
+
 local PlayerNameInput = TeleportTab:CreateInput({
     Name = "Player Name",
     PlaceholderText = "Enter username",
@@ -837,17 +1100,77 @@ local PlayerNameInput = TeleportTab:CreateInput({
     end
 })
 
+local TeleportOffsetSection = TeleportTab:CreateSection("Teleport Offset")
+
+local TeleportOffsetXInput = TeleportTab:CreateInput({
+    Name = "Offset X",
+    PlaceholderText = tostring(TeleportOffsetX),
+    RemoveTextAfterFocusLost = false,
+    Flag = "TeleportOffsetX",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            TeleportOffsetX = num
+        end
+    end
+})
+
+local TeleportOffsetYInput = TeleportTab:CreateInput({
+    Name = "Offset Y",
+    PlaceholderText = tostring(TeleportOffsetY),
+    RemoveTextAfterFocusLost = false,
+    Flag = "TeleportOffsetY",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            TeleportOffsetY = num
+        end
+    end
+})
+
+local TeleportOffsetZInput = TeleportTab:CreateInput({
+    Name = "Offset Z",
+    PlaceholderText = tostring(TeleportOffsetZ),
+    RemoveTextAfterFocusLost = false,
+    Flag = "TeleportOffsetZ",
+    Callback = function(text)
+        local num = tonumber(text)
+        if num then
+            TeleportOffsetZ = num
+        end
+    end
+})
+
+local TeleportSettingsSection = TeleportTab:CreateSection("Teleport Settings")
+
+local UntilDiesToggle = TeleportTab:CreateToggle({
+    Name = "Until Dies",
+    CurrentValue = false,
+    Flag = "UntilDiesToggle",
+    Callback = function(value)
+        TeleportUntilDies = value
+    end
+})
+
+local ChangeAfterDeathToggle = TeleportTab:CreateToggle({
+    Name = "Change After Death",
+    CurrentValue = false,
+    Flag = "ChangeAfterDeathToggle",
+    Callback = function(value)
+        TeleportChangeAfterDeath = value
+    end
+})
+
 local TeleportButton = TeleportTab:CreateButton({
     Name = "Teleport",
     Callback = function()
         local playerName = TeleportTab.PlayerName or ""
         if playerName ~= "" then
-            local targetPlayer = Players:FindFirstChild(playerName)
-            if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                Character:FindFirstChild("HumanoidRootPart").CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+            local success = TeleportToPlayerWithOffset(playerName)
+            if success then
                 Rayfield:Notify({
                     Title = "Success",
-                    Content = "Teleported to " .. playerName,
+                    Content = "Teleported to " .. playerName .. " with offset",
                     Duration = 3,
                     Image = 4483362458
                 })
@@ -869,12 +1192,33 @@ local FastTeleportToggle = TeleportTab:CreateToggle({
     Flag = "FastTeleportToggle",
     Callback = function(value)
         if value then
-            TeleportTab.FastTeleportLoop = game:GetService("RunService").Heartbeat:Connect(function()
+            TeleportTab.FastTeleportLoop = RunService.Heartbeat:Connect(function()
                 local playerName = TeleportTab.PlayerName or ""
                 if playerName ~= "" then
-                    local targetPlayer = Players:FindFirstChild(playerName)
-                    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        Character:FindFirstChild("HumanoidRootPart").CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
+                    local success, targetPlayer = TeleportToPlayerWithOffset(playerName)
+                    
+                    if TeleportUntilDies and targetPlayer then
+                        local character = targetPlayer.Character
+                        local humanoid = character and character:FindFirstChild("Humanoid")
+                        
+                        if humanoid and humanoid.Health <= 0 then
+                            if TeleportTab.FastTeleportLoop then
+                                TeleportTab.FastTeleportLoop:Disconnect()
+                                TeleportTab.FastTeleportLoop = nil
+                                FastTeleportToggle:Set(false)
+                                
+                                Rayfield:Notify({
+                                    Title = "Follow Stopped",
+                                    Content = "Target player has died",
+                                    Duration = 3,
+                                    Image = 4483362458
+                                })
+                            end
+                        end
+                    elseif TeleportChangeAfterDeath and not TeleportUntilDies then
+                        if not success then
+                            SelectRandomTarget()
+                        end
                     end
                 end
             end)
@@ -902,10 +1246,13 @@ local function CreateKeybind(name, flag, defaultKey, callback)
     })
 end
 
-CreateKeybind("Speed", "SpeedKeybind", "U", function(key)
+CreateKeybind("Speed (WalkSpeed)", "SpeedKeybind", "U", function(key)
     SpeedEnabled = not SpeedEnabled
     SpeedToggle:Set(SpeedEnabled)
     if SpeedEnabled then
+        SpeedCFrameEnabled = false
+        SpeedCFrameToggle:Set(false)
+        StopSpeedCFrame()
         Humanoid.WalkSpeed = DesiredWalkSpeed
     else
         Humanoid.WalkSpeed = OriginalWalkSpeed
@@ -914,6 +1261,19 @@ CreateKeybind("Speed", "SpeedKeybind", "U", function(key)
         StartSpeedJumpLoop()
     else
         StopSpeedJumpLoop()
+    end
+end)
+
+CreateKeybind("Speed (CFrame)", "SpeedCFrameKeybind", "Y", function(key)
+    SpeedCFrameEnabled = not SpeedCFrameEnabled
+    SpeedCFrameToggle:Set(SpeedCFrameEnabled)
+    if SpeedCFrameEnabled then
+        SpeedEnabled = false
+        SpeedToggle:Set(false)
+        StopSpeedJumpLoop()
+        StartSpeedCFrame()
+    else
+        StopSpeedCFrame()
     end
 end)
 
@@ -932,16 +1292,46 @@ CreateKeybind("Jump", "JumpKeybind", "J", function(key)
     end
 end)
 
-CreateKeybind("Flight", "FlyKeybind", "F", function(key)
+CreateKeybind("Flight (BodyVelocity)", "FlyKeybind", "F", function(key)
     FlyEnabled = not FlyEnabled
     FlyToggle:Set(FlyEnabled)
-    Fly()
+    if FlyEnabled then
+        FlyCFrameEnabled = false
+        FlyCFrameToggle:Set(false)
+        StopFlyCFrame()
+        Fly()
+    else
+        if BodyVelocity then
+            BodyVelocity:Destroy()
+            BodyVelocity = nil
+        end
+        if FlightLoop then
+            FlightLoop:Disconnect()
+            FlightLoop = nil
+        end
+    end
+end)
+
+CreateKeybind("Flight (CFrame)", "FlyCFrameKeybind", "H", function(key)
+    FlyCFrameEnabled = not FlyCFrameEnabled
+    FlyCFrameToggle:Set(FlyCFrameEnabled)
+    if FlyCFrameEnabled then
+        FlyEnabled = false
+        FlyToggle:Set(false)
+        if BodyVelocity then
+            BodyVelocity:Destroy()
+            BodyVelocity = nil
+        end
+        StartFlyCFrame()
+    else
+        StopFlyCFrame()
+    end
 end)
 
 CreateKeybind("Noclip", "NoclipKeybind", "N", function(key)
     NoclipEnabled = not NoclipEnabled
     NoclipToggle:Set(NoclipEnabled)
-    StartNoclip()
+    ToggleNoclip()
 end)
 
 CreateKeybind("Fullbright", "FullbrightKeybind", "B", function(key)
@@ -958,12 +1348,7 @@ end)
 
 CreateKeybind("Teleport", "TeleportKeybind", "T", function(key)
     local playerName = TeleportTab.PlayerName or ""
-    if playerName ~= "" then
-        local targetPlayer = Players:FindFirstChild(playerName)
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            Character:FindFirstChild("HumanoidRootPart").CFrame = targetPlayer.Character.HumanoidRootPart.CFrame
-        end
-    end
+    TeleportToPlayerWithOffset(playerName)
 end)
 
 CreateKeybind("SpinBot", "SpinBotKeybind", "G", function(key)
@@ -979,19 +1364,32 @@ end)
 CreateKeybind("ESP", "ESPKeybind", "E", function(key)
     ESPEnabled = not ESPEnabled
     ESPToggle:Set(ESPEnabled)
-    ToggleESP()
+    toggleESP()
 end)
 
 -- Load Scripts
 local LoadSection = LoadTab:CreateSection("External Scripts")
 
 local REMButton = LoadTab:CreateButton({
-    Name = "Load Remote Exploit Maker [REM]",
+    Name = "Load Roblox Exploit Maker [REM]",
     Callback = function()
         loadstring(game:HttpGet("https://e-vil.com/anbu/rem.lua"))()
         Rayfield:Notify({
             Title = "Script Loaded",
-            Content = "Remote Exploit Maker loaded successfully!",
+            Content = "Roblox Exploit Maker loaded successfully!",
+            Duration = 5,
+            Image = 4483362458
+        })
+    end
+})
+
+local InfiniteYieldButton = LoadTab:CreateButton({
+    Name = "Load Infinite Yield",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/froumes/badinfiniteyield/refs/heads/master/source"))()
+        Rayfield:Notify({
+            Title = "Script Loaded",
+            Content = "Infinite Yield loaded successfully!",
             Duration = 5,
             Image = 4483362458
         })
@@ -1046,11 +1444,17 @@ Players.LocalPlayer.CharacterAdded:Connect(function(newChar)
     if SpeedEnabled or JumpEnabled then
         StartSpeedJumpLoop()
     end
+    if SpeedCFrameEnabled then
+        StartSpeedCFrame()
+    end
     if FlyEnabled then
         Fly()
     end
+    if FlyCFrameEnabled then
+        StartFlyCFrame()
+    end
     if NoclipEnabled then
-        StartNoclip()
+        ToggleNoclip()
     end
     if SpinBotEnabled then
         StartSpinBot()
@@ -1060,7 +1464,7 @@ end)
 -- Отслеживаем добавление новых игроков для ESP
 Players.PlayerAdded:Connect(function(player)
     if ESPEnabled and player ~= Player then
-        CreateESP(player)
+        setupESP(player)
     end
     -- Обновляем список игроков в dropdown
     UpdatePlayersList()
@@ -1077,11 +1481,14 @@ Players.PlayerRemoving:Connect(function(player)
         if NoFogEnabled then
             game.Lighting.FogEnd = OriginalFogEnd
         end
-        if NoclipConnection then
-            NoclipConnection:Disconnect()
+        if NoclipLoop then
+            NoclipLoop:Disconnect()
         end
         if SpeedJumpConnection then
             SpeedJumpConnection:Disconnect()
+        end
+        if SpeedCFrameLoop then
+            SpeedCFrameLoop:Disconnect()
         end
         if SpinBotConnection then
             SpinBotConnection:Disconnect()
@@ -1089,7 +1496,10 @@ Players.PlayerRemoving:Connect(function(player)
         if FlightLoop then
             FlightLoop:Disconnect()
         end
-        ClearESP()
+        if FlyCFrameLoop then
+            FlyCFrameLoop:Disconnect()
+        end
+        clearESP()
     else
         -- Обновляем список игроков в dropdown
         UpdatePlayersList()
@@ -1109,7 +1519,7 @@ LoadSavedSettings()
 -- Load notification
 Rayfield:Notify({
     Title = "Control Panel",
-    Content = "Script loaded successfully!",
+    Content = "Script loaded successfully! Key: 123",
     Duration = 5,
     Image = 4483362458
 })
