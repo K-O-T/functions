@@ -1,19 +1,9 @@
--- Obfuscate is soon.
-
-local WhitelistedUsers = {
-    1932888361,
-    11966604434,
-    19706650726
-} -- Add your user ID to bypass key system lol
-
-local player = game.Players.LocalPlayer
-local isWhitelisted = table.find(WhitelistedUsers, player.UserId) ~= nil
-
 -- Загрузка Rayfield
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Создание окна
 local Window = Rayfield:CreateWindow({
-    Name = "[UNIVERSAL] ~1.3",
+    Name = "[Universal v~1.3] ",
     LoadingTitle = "Loading...",
     LoadingSubtitle = "by K",
     ConfigurationSaving = {
@@ -22,18 +12,18 @@ local Window = Rayfield:CreateWindow({
         FileName = "Config"
     },
     Discord = {
-        Enabled = not isWhitelised,
-        Invite = "noinvitelink",
-        RememberJoins = true
+        Enabled = true,
+        Invite = "dsc.gg/xe-no",
+        RememberJoins = false
     },
-    KeySystem = not isWhitelised,
+    KeySystem = false,
     KeySettings = {
         Title = "Auth Required",
         Subtitle = "Enter key to continue",
-        Note = "Key: 1488",
+        Note = "Key: 123",
         FileName = "ControlPanelKey",
         SaveKey = true,
-        Key = {"1488","Key"}
+        Key = {"123"}
     }
 })
 
@@ -43,6 +33,7 @@ local VisualTab = Window:CreateTab("Visual", 4483362458)
 local TeleportTab = Window:CreateTab("TP", 4483362458)
 local KeybindTab = Window:CreateTab("Hotkeys", 4483362458)
 local LoadTab = Window:CreateTab("Load Scripts", 4483362458)
+local ESPTab = Window:CreateTab("ESP", 4483362458)
 
 -- Variables
 local Player = game:GetService("Players").LocalPlayer
@@ -70,15 +61,15 @@ local NoFogEnabled = false
 local SpinBotEnabled = false
 local SpeedCFrameEnabled = false
 
--- ESP Settings
-local ESPTeammates = false
-local ESPBox = false
-local ESPOutline = false
-local ESPName = false
-local ESPDistance = false
-local ESPBoxColor = Color3.fromRGB(0, 255, 0)
-local ESPTextColor = Color3.fromRGB(255, 255, 255)
-local ESPTransparency = 0.5
+-- ESP Settings (based on provided script)
+local ESPEnabled = false
+local ESPTeamCheck = false
+local ESPBoxesVisible = true
+local ESPBoxColor = Color3.fromRGB(255, 80, 10)
+local ESPBoxThickness = 1
+local ESPBoxFilled = false
+local ESPBoxTransparency = 0.7
+local ESPDisableKey = Enum.KeyCode.Q
 
 -- Teleport Settings
 local TeleportUntilDies = false
@@ -91,7 +82,6 @@ local SpinBotSpeed = 50
 local TeleportOffsetX = 0
 local TeleportOffsetY = 0
 local TeleportOffsetZ = 0
-local FlyVelocity = Vector3.new(0, 0, 0)
 local BodyVelocity
 local NoclipLoop
 local SpeedJumpConnection
@@ -128,7 +118,7 @@ local function StopSpeedJumpLoop()
     end
 end
 
--- Speed CFrame Function
+-- Speed CFrame Function (fixed to work like WalkSpeed)
 local function StartSpeedCFrame()
     if SpeedCFrameLoop then
         SpeedCFrameLoop:Disconnect()
@@ -139,7 +129,7 @@ local function StartSpeedCFrame()
             local rootPart = Character.HumanoidRootPart
             local moveDirection = Vector3.new(0, 0, 0)
             
-            -- Calculate movement direction
+            -- Calculate movement direction (only horizontal movement)
             if UIS:IsKeyDown(Enum.KeyCode.W) then
                 moveDirection = moveDirection + Camera.CFrame.LookVector
             end
@@ -153,10 +143,16 @@ local function StartSpeedCFrame()
                 moveDirection = moveDirection + Camera.CFrame.RightVector
             end
             
+            -- Set Y component to 0 for horizontal movement only
+            moveDirection = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+            
             -- Normalize and apply speed
             if moveDirection.Magnitude > 0 then
                 moveDirection = moveDirection.Unit * DesiredWalkSpeed
-                rootPart.CFrame = rootPart.CFrame + moveDirection * RunService.Heartbeat:Wait()
+                -- Move only horizontally, maintain current Y position
+                local currentPos = rootPart.Position
+                local newPos = currentPos + moveDirection * RunService.Heartbeat:Wait()
+                rootPart.CFrame = CFrame.new(newPos.X, currentPos.Y, newPos.Z) * CFrame.Angles(0, rootPart.Orientation.Y * math.pi/180, 0)
             end
         end
     end)
@@ -201,7 +197,7 @@ local function Fly()
             
             local Camera = workspace.CurrentCamera
             
-            FlyVelocity = Vector3.new(0, 0, 0)
+            local FlyVelocity = Vector3.new(0, 0, 0)
             
             if UIS:IsKeyDown(Enum.KeyCode.W) then
                 FlyVelocity = FlyVelocity + Camera.CFrame.LookVector
@@ -242,10 +238,16 @@ local function Fly()
     end
 end
 
--- Fly CFrame Function
+-- Fly CFrame Function with gravity disabled
 local function StartFlyCFrame()
     if FlyCFrameLoop then
         FlyCFrameLoop:Disconnect()
+    end
+    
+    -- Disable gravity
+    if Humanoid then
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
     end
     
     FlyCFrameLoop = RunService.Heartbeat:Connect(function()
@@ -296,6 +298,12 @@ local function StopFlyCFrame()
     if FlyCFrameLoop then
         FlyCFrameLoop:Disconnect()
         FlyCFrameLoop = nil
+    end
+    
+    -- Re-enable gravity
+    if Humanoid then
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
     end
 end
 
@@ -424,184 +432,131 @@ local function SelectRandomTarget()
     })
 end
 
--- ESP Functions
-local ESP = {}
+-- ESP Functions (based on provided script)
+local ESPBoxes = {}
 local ESPConnections = {}
+local HeadOffset = Vector3.new(0, 0.5, 0)
+local LegsOffset = Vector3.new(0, 3, 0)
 
-local function shouldESP(player)
-    if player == Player then return false end
-    
-    if not ESPTeammates then
-        local localTeam = Player.Team
-        local playerTeam = player.Team
-        
-        if localTeam and playerTeam and localTeam == playerTeam then
-            return false
-        end
-    end
-    
-    return true
-end
-
-local function getESPColor(player)
-    if player.Team then
-        return player.Team.TeamColor.Color
-    end
-    return ESPBoxColor
-end
-
-local function setupESP(player)
-    if ESP[player] then return end
-    
-    local box = Instance.new("SelectionBox")
-    box.LineThickness = 0.05
-    box.SurfaceTransparency = 1
-    box.Transparency = ESPTransparency
-    box.Parent = workspace
-    
-    local highlight = Instance.new("Highlight")
-    highlight.FillTransparency = 1
-    highlight.OutlineTransparency = ESPTransparency
-    highlight.Parent = workspace
-    
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 200, 0, 40)
-    billboard.AlwaysOnTop = true
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.Parent = workspace
-    
-    local textLabel = Instance.new("TextLabel", billboard)
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Font = Enum.Font.Gotham
-    textLabel.TextStrokeTransparency = 0
-    textLabel.TextSize = 13
-    textLabel.TextColor3 = ESPTextColor
-    
-    ESP[player] = {
-        Box = box,
-        Highlight = highlight,
-        Billboard = billboard,
-        TextLabel = textLabel
-    }
-end
-
-local function removeESP(player)
-    if ESP[player] then
-        for _, obj in pairs(ESP[player]) do
-            if obj and obj.Parent then
-                obj:Destroy()
+local function CreateESPBoxes()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Player then
+            if ESPBoxes[player] then
+                ESPBoxes[player]:Remove()
+                ESPBoxes[player] = nil
+            end
+            
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+                local square = Drawing.new("Square")
+                square.Thickness = ESPBoxThickness
+                square.Transparency = ESPBoxTransparency
+                square.Color = ESPBoxColor
+                square.Filled = ESPBoxFilled
+                square.Visible = false
+                
+                ESPBoxes[player] = square
             end
         end
-        ESP[player] = nil
     end
 end
 
-local function clearESP()
-    for player, _ in pairs(ESP) do
-        removeESP(player)
+local function UpdateESPBoxes()
+    if not ESPEnabled then
+        for _, square in pairs(ESPBoxes) do
+            if square then
+                square.Visible = false
+            end
+        end
+        return
     end
-    ESP = {}
+    
+    for player, square in pairs(ESPBoxes) do
+        if player and player.Parent and player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player.Character:FindFirstChild("Humanoid") then
+            local humanoid = player.Character.Humanoid
+            local humanoidRootPart = player.Character.HumanoidRootPart
+            
+            if humanoid.Health > 0 then
+                local rootPos, onScreen = Camera:WorldToViewportPoint(humanoidRootPart.Position)
+                local headPos = Camera:WorldToViewportPoint(player.Character.Head.Position + HeadOffset)
+                local legsPos = Camera:WorldToViewportPoint(humanoidRootPart.Position - LegsOffset)
+                
+                if onScreen and ESPBoxesVisible then
+                    square.Size = Vector2.new(2000 / rootPos.Z, headPos.Y - legsPos.Y)
+                    square.Position = Vector2.new(rootPos.X - square.Size.X / 2, rootPos.Y - square.Size.Y / 2)
+                    square.Thickness = ESPBoxThickness
+                    square.Transparency = ESPBoxTransparency
+                    square.Color = ESPBoxColor
+                    square.Filled = ESPBoxFilled
+                    
+                    -- Team check
+                    if ESPTeamCheck then
+                        if player.Team ~= Player.Team then
+                            square.Visible = true
+                        else
+                            square.Visible = false
+                        end
+                    else
+                        square.Visible = true
+                    end
+                else
+                    square.Visible = false
+                end
+            else
+                square.Visible = false
+            end
+        else
+            if square then
+                square.Visible = false
+            end
+        end
+    end
+end
+
+local function ClearESPBoxes()
+    for player, square in pairs(ESPBoxes) do
+        if square then
+            square:Remove()
+        end
+    end
+    ESPBoxes = {}
     
     for _, connection in pairs(ESPConnections) do
-        if connection then
-            connection:Disconnect()
-        end
+        connection:Disconnect()
     end
     ESPConnections = {}
 end
 
-local function updateESP()
-    if not ESPEnabled then
-        clearESP()
-        return
-    end
-    
-    -- Setup ESP for existing players
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= Player then
-            setupESP(player)
-        end
-    end
-    
-    -- Update ESP loop
-    local updateConnection = RunService.RenderStepped:Connect(function()
-        for player, espObj in pairs(ESP) do
-            local character = player.Character
-            local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-            
-            local isVisible = humanoid and humanoid.Health > 0 and humanoidRootPart and shouldESP(player)
-            
-            if isVisible then
-                local color = getESPColor(player)
-                
-                -- Update box
-                espObj.Box.Color3 = color
-                espObj.Box.Visible = ESPBox
-                espObj.Box.Adornee = ESPBox and character or nil
-                espObj.Box.Transparency = ESPTransparency
-                
-                -- Update highlight
-                espObj.Highlight.OutlineColor = color
-                espObj.Highlight.Enabled = ESPOutline
-                espObj.Highlight.Adornee = ESPOutline and character or nil
-                espObj.Highlight.OutlineTransparency = ESPTransparency
-                
-                -- Update billboard
-                local showBillboard = ESPName or ESPDistance
-                espObj.Billboard.Enabled = showBillboard
-                espObj.Billboard.Adornee = showBillboard and humanoidRootPart or nil
-                
-                if showBillboard then
-                    local text = ""
-                    if ESPName then
-                        text = player.Name
-                    end
-                    
-                    if ESPDistance then
-                        local distance = math.floor((Camera.CFrame.Position - humanoidRootPart.Position).Magnitude)
-                        if ESPName then
-                            text = text .. " [" .. distance .. " studs]"
-                        else
-                            text = distance .. " studs"
-                        end
-                    end
-                    
-                    espObj.TextLabel.Text = text
-                    espObj.TextLabel.TextColor3 = ESPTextColor
-                end
-            else
-                espObj.Box.Visible = false
-                espObj.Box.Adornee = nil
-                espObj.Highlight.Enabled = false
-                espObj.Highlight.Adornee = nil
-                espObj.Billboard.Enabled = false
-                espObj.Billboard.Adornee = nil
-            end
-        end
-    end)
-    
-    table.insert(ESPConnections, updateConnection)
-end
-
-local function toggleESP()
-    clearESP()
-    
+local function ToggleESP()
     if ESPEnabled then
-        updateESP()
+        ClearESPBoxes()
+        CreateESPBoxes()
+        
+        -- Update loop
+        local updateConnection = RunService.RenderStepped:Connect(UpdateESPBoxes)
+        table.insert(ESPConnections, updateConnection)
         
         -- Player added connection
         local playerAdded = Players.PlayerAdded:Connect(function(player)
-            if ESPEnabled then
-                setupESP(player)
+            task.wait(1)
+            if ESPEnabled and player ~= Player then
+                local square = Drawing.new("Square")
+                square.Thickness = ESPBoxThickness
+                square.Transparency = ESPBoxTransparency
+                square.Color = ESPBoxColor
+                square.Filled = ESPBoxFilled
+                square.Visible = false
+                
+                ESPBoxes[player] = square
             end
         end)
         table.insert(ESPConnections, playerAdded)
         
         -- Player removing connection
         local playerRemoving = Players.PlayerRemoving:Connect(function(player)
-            removeESP(player)
+            if ESPBoxes[player] then
+                ESPBoxes[player]:Remove()
+                ESPBoxes[player] = nil
+            end
         end)
         table.insert(ESPConnections, playerRemoving)
         
@@ -609,78 +564,28 @@ local function toggleESP()
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= Player then
                 local characterAdded = player.CharacterAdded:Connect(function()
+                    task.wait(1)
                     if ESPEnabled then
-                        task.wait(0.5)
-                        setupESP(player)
+                        if ESPBoxes[player] then
+                            ESPBoxes[player]:Remove()
+                        end
+                        
+                        local square = Drawing.new("Square")
+                        square.Thickness = ESPBoxThickness
+                        square.Transparency = ESPBoxTransparency
+                        square.Color = ESPBoxColor
+                        square.Filled = ESPBoxFilled
+                        square.Visible = false
+                        
+                        ESPBoxes[player] = square
                     end
                 end)
                 table.insert(ESPConnections, characterAdded)
             end
         end
-    end
-end
-
--- Load saved settings
-local function LoadSavedSettings()
-    -- Загрузка сохраненных значений скорости
-    if pcall(function() return Window:GetConfiguration().DesiredWalkSpeed end) then
-        local saved = Window:GetConfiguration().DesiredWalkSpeed
-        if saved then
-            DesiredWalkSpeed = saved
-            SpeedInput:Set(saved)
-        end
-    end
-    
-    if pcall(function() return Window:GetConfiguration().OriginalWalkSpeed end) then
-        local saved = Window:GetConfiguration().OriginalWalkSpeed
-        if saved then
-            OriginalWalkSpeed = saved
-            BaseSpeedInput:Set(saved)
-        end
-    end
-    
-    if pcall(function() return Window:GetConfiguration().DesiredJumpHeight end) then
-        local saved = Window:GetConfiguration().DesiredJumpHeight
-        if saved then
-            DesiredJumpHeight = saved
-            JumpInput:Set(saved)
-        end
-    end
-    
-    if pcall(function() return Window:GetConfiguration().OriginalJumpHeight end) then
-        local saved = Window:GetConfiguration().OriginalJumpHeight
-        if saved then
-            OriginalJumpHeight = saved
-            BaseJumpInput:Set(saved)
-        end
-    end
-    
-    if pcall(function() return Window:GetConfiguration().FlySpeed end) then
-        local saved = Window:GetConfiguration().FlySpeed
-        if saved then
-            FlySpeed = saved
-            FlySpeedInput:Set(saved)
-        end
-    end
-    
-    if pcall(function() return Window:GetConfiguration().SpinBotSpeed end) then
-        local saved = Window:GetConfiguration().SpinBotSpeed
-        if saved then
-            SpinBotSpeed = saved
-            SpinBotSpeedInput:Set(saved)
-        end
-    end
-    
-    -- Применяем текущие значения
-    if SpeedCFrameEnabled then
-        StartSpeedCFrame()
-    elseif SpeedEnabled then
-        Humanoid.WalkSpeed = DesiredWalkSpeed
     else
-        Humanoid.WalkSpeed = OriginalWalkSpeed
+        ClearESPBoxes()
     end
-    
-    Humanoid.JumpHeight = JumpEnabled and DesiredJumpHeight or OriginalJumpHeight
 end
 
 -- Teleport with offset
@@ -945,100 +850,82 @@ local NoFogToggle = VisualTab:CreateToggle({
     end
 })
 
-local ESPSubSection = VisualTab:CreateSection("ESP Settings")
+-- ESP Settings
+local ESPMainSection = ESPTab:CreateSection("ESP Settings")
 
-local ESPToggle = VisualTab:CreateToggle({
+local ESPToggle = ESPTab:CreateToggle({
     Name = "ESP",
     CurrentValue = false,
     Flag = "ESPToggle",
     Callback = function(value)
         ESPEnabled = value
-        toggleESP()
+        ToggleESP()
     end
 })
 
-local ESPBoxToggle = VisualTab:CreateToggle({
-    Name = "Box ESP",
+local ESPTeamCheckToggle = ESPTab:CreateToggle({
+    Name = "Team Check",
     CurrentValue = false,
-    Flag = "ESPBoxToggle",
+    Flag = "ESPTeamCheckToggle",
     Callback = function(value)
-        ESPBox = value
-        toggleESP()
+        ESPTeamCheck = value
+        ToggleESP()
     end
 })
 
-local ESPOutlineToggle = VisualTab:CreateToggle({
-    Name = "Outline ESP",
+local ESPBoxesVisibleToggle = ESPTab:CreateToggle({
+    Name = "Boxes Visible",
+    CurrentValue = true,
+    Flag = "ESPBoxesVisibleToggle",
+    Callback = function(value)
+        ESPBoxesVisible = value
+        ToggleESP()
+    end
+})
+
+local ESPBoxFilledToggle = ESPTab:CreateToggle({
+    Name = "Box Filled",
     CurrentValue = false,
-    Flag = "ESPOutlineToggle",
+    Flag = "ESPBoxFilledToggle",
     Callback = function(value)
-        ESPOutline = value
-        toggleESP()
+        ESPBoxFilled = value
+        ToggleESP()
     end
 })
 
-local ESPNameToggle = VisualTab:CreateToggle({
-    Name = "Show Name",
-    CurrentValue = false,
-    Flag = "ESPNameToggle",
-    Callback = function(value)
-        ESPName = value
-        toggleESP()
-    end
-})
-
-local ESPDistanceToggle = VisualTab:CreateToggle({
-    Name = "Show Distance",
-    CurrentValue = false,
-    Flag = "ESPDistanceToggle",
-    Callback = function(value)
-        ESPDistance = value
-        toggleESP()
-    end
-})
-
-local ESPTeammatesToggle = VisualTab:CreateToggle({
-    Name = "Show Teammates",
-    CurrentValue = false,
-    Flag = "ESPTeammatesToggle",
-    Callback = function(value)
-        ESPTeammates = value
-        toggleESP()
-    end
-})
-
-local ESPTransparencySlider = VisualTab:CreateSlider({
-    Name = "ESP Transparency",
-    Range = {0, 1},
-    Increment = 0.05,
-    Suffix = "",
-    CurrentValue = 0.5,
-    Flag = "ESPTransparencySlider",
-    Callback = function(value)
-        ESPTransparency = value
-        toggleESP()
-    end
-})
-
-local ESPColorSection = VisualTab:CreateSection("ESP Color Settings")
-
-local ESPBoxColorPicker = VisualTab:CreateColorPicker({
-    Name = "ESP Box Color",
-    Color = Color3.fromRGB(0, 255, 0),
+local ESPBoxColorPicker = ESPTab:CreateColorPicker({
+    Name = "Box Color",
+    Color = Color3.fromRGB(255, 80, 10),
     Flag = "ESPBoxColorPicker",
     Callback = function(color)
         ESPBoxColor = color
-        toggleESP()
+        ToggleESP()
     end
 })
 
-local ESPTextColorPicker = VisualTab:CreateColorPicker({
-    Name = "ESP Text Color",
-    Color = Color3.fromRGB(255, 255, 255),
-    Flag = "ESPTextColorPicker",
-    Callback = function(color)
-        ESPTextColor = color
-        toggleESP()
+local ESPBoxThicknessSlider = ESPTab:CreateSlider({
+    Name = "Box Thickness",
+    Range = {1, 5},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 1,
+    Flag = "ESPBoxThicknessSlider",
+    Callback = function(value)
+        ESPBoxThickness = value
+        ToggleESP()
+    end
+})
+
+local ESPBoxTransparencySlider = ESPTab:CreateSlider({
+    Name = "Box Transparency",
+    Range = {0, 1},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 0.7,
+    Flag = "ESPBoxTransparencySlider",
+    Callback = function(value)
+        ESPBoxTransparency = value
+        ToggleESP()
     end
 })
 
@@ -1246,125 +1133,155 @@ local function CreateKeybind(name, flag, defaultKey, callback)
     })
 end
 
-CreateKeybind("Speed (WalkSpeed)", "SpeedKeybind", "U", function(key)
-    SpeedEnabled = not SpeedEnabled
-    SpeedToggle:Set(SpeedEnabled)
-    if SpeedEnabled then
-        SpeedCFrameEnabled = false
-        SpeedCFrameToggle:Set(false)
-        StopSpeedCFrame()
-        Humanoid.WalkSpeed = DesiredWalkSpeed
-    else
-        Humanoid.WalkSpeed = OriginalWalkSpeed
-    end
-    if SpeedEnabled or JumpEnabled then
-        StartSpeedJumpLoop()
-    else
-        StopSpeedJumpLoop()
-    end
-end)
-
-CreateKeybind("Speed (CFrame)", "SpeedCFrameKeybind", "Y", function(key)
-    SpeedCFrameEnabled = not SpeedCFrameEnabled
-    SpeedCFrameToggle:Set(SpeedCFrameEnabled)
-    if SpeedCFrameEnabled then
-        SpeedEnabled = false
-        SpeedToggle:Set(false)
-        StopSpeedJumpLoop()
-        StartSpeedCFrame()
-    else
-        StopSpeedCFrame()
-    end
-end)
-
-CreateKeybind("Jump", "JumpKeybind", "J", function(key)
-    JumpEnabled = not JumpEnabled
-    JumpToggle:Set(JumpEnabled)
-    if JumpEnabled then
-        Humanoid.JumpHeight = DesiredJumpHeight
-    else
-        Humanoid.JumpHeight = OriginalJumpHeight
-    end
-    if SpeedEnabled or JumpEnabled then
-        StartSpeedJumpLoop()
-    else
-        StopSpeedJumpLoop()
-    end
-end)
-
-CreateKeybind("Flight (BodyVelocity)", "FlyKeybind", "F", function(key)
-    FlyEnabled = not FlyEnabled
-    FlyToggle:Set(FlyEnabled)
-    if FlyEnabled then
-        FlyCFrameEnabled = false
-        FlyCFrameToggle:Set(false)
-        StopFlyCFrame()
-        Fly()
-    else
-        if BodyVelocity then
-            BodyVelocity:Destroy()
-            BodyVelocity = nil
+-- Only create keybinds for essential functions, no default keys
+CreateKeybind("Speed (WalkSpeed)", "SpeedKeybind", "", function(key)
+    if key ~= "" then
+        SpeedEnabled = not SpeedEnabled
+        SpeedToggle:Set(SpeedEnabled)
+        if SpeedEnabled then
+            SpeedCFrameEnabled = false
+            SpeedCFrameToggle:Set(false)
+            StopSpeedCFrame()
+            Humanoid.WalkSpeed = DesiredWalkSpeed
+        else
+            Humanoid.WalkSpeed = OriginalWalkSpeed
         end
-        if FlightLoop then
-            FlightLoop:Disconnect()
-            FlightLoop = nil
+        if SpeedEnabled or JumpEnabled then
+            StartSpeedJumpLoop()
+        else
+            StopSpeedJumpLoop()
         end
     end
 end)
 
-CreateKeybind("Flight (CFrame)", "FlyCFrameKeybind", "H", function(key)
-    FlyCFrameEnabled = not FlyCFrameEnabled
-    FlyCFrameToggle:Set(FlyCFrameEnabled)
-    if FlyCFrameEnabled then
-        FlyEnabled = false
-        FlyToggle:Set(false)
-        if BodyVelocity then
-            BodyVelocity:Destroy()
-            BodyVelocity = nil
+CreateKeybind("Speed (CFrame)", "SpeedCFrameKeybind", "", function(key)
+    if key ~= "" then
+        SpeedCFrameEnabled = not SpeedCFrameEnabled
+        SpeedCFrameToggle:Set(SpeedCFrameEnabled)
+        if SpeedCFrameEnabled then
+            SpeedEnabled = false
+            SpeedToggle:Set(false)
+            StopSpeedJumpLoop()
+            StartSpeedCFrame()
+        else
+            StopSpeedCFrame()
         end
-        StartFlyCFrame()
-    else
-        StopFlyCFrame()
     end
 end)
 
-CreateKeybind("Noclip", "NoclipKeybind", "N", function(key)
-    NoclipEnabled = not NoclipEnabled
-    NoclipToggle:Set(NoclipEnabled)
-    ToggleNoclip()
-end)
-
-CreateKeybind("Fullbright", "FullbrightKeybind", "B", function(key)
-    FullbrightEnabled = not FullbrightEnabled
-    FullbrightToggle:Set(FullbrightEnabled)
-    ApplyFullbright()
-end)
-
-CreateKeybind("No Fog", "NoFogKeybind", "M", function(key)
-    NoFogEnabled = not NoFogEnabled
-    NoFogToggle:Set(NoFogEnabled)
-    ApplyNoFog()
-end)
-
-CreateKeybind("Teleport", "TeleportKeybind", "T", function(key)
-    local playerName = TeleportTab.PlayerName or ""
-    TeleportToPlayerWithOffset(playerName)
-end)
-
-CreateKeybind("SpinBot", "SpinBotKeybind", "G", function(key)
-    SpinBotEnabled = not SpinBotEnabled
-    SpinBotToggle:Set(SpinBotEnabled)
-    if SpinBotEnabled then
-        StartSpinBot()
-    else
-        StopSpinBot()
+CreateKeybind("Jump", "JumpKeybind", "", function(key)
+    if key ~= "" then
+        JumpEnabled = not JumpEnabled
+        JumpToggle:Set(JumpEnabled)
+        if JumpEnabled then
+            Humanoid.JumpHeight = DesiredJumpHeight
+        else
+            Humanoid.JumpHeight = OriginalJumpHeight
+        end
+        if SpeedEnabled or JumpEnabled then
+            StartSpeedJumpLoop()
+        else
+            StopSpeedJumpLoop()
+        end
     end
 end)
 
-CreateKeybind("ESP", "ESPKeybind", "E", function(key)
-    ESPEnabled = not ESPEnabled
-    ESPToggle:Set(ESPEnabled)
-    toggleESP()
+CreateKeybind("Flight (BodyVelocity)", "FlyKeybind", "", function(key)
+    if key ~= "" then
+        FlyEnabled = not FlyEnabled
+        FlyToggle:Set(FlyEnabled)
+        if FlyEnabled then
+            FlyCFrameEnabled = false
+            FlyCFrameToggle:Set(false)
+            StopFlyCFrame()
+            Fly()
+        else
+            if BodyVelocity then
+                BodyVelocity:Destroy()
+                BodyVelocity = nil
+            end
+            if FlightLoop then
+                FlightLoop:Disconnect()
+                FlightLoop = nil
+            end
+        end
+    end
+end)
+
+CreateKeybind("Flight (CFrame)", "FlyCFrameKeybind", "", function(key)
+    if key ~= "" then
+        FlyCFrameEnabled = not FlyCFrameEnabled
+        FlyCFrameToggle:Set(FlyCFrameEnabled)
+        if FlyCFrameEnabled then
+            FlyEnabled = false
+            FlyToggle:Set(false)
+            if BodyVelocity then
+                BodyVelocity:Destroy()
+                BodyVelocity = nil
+            end
+            StartFlyCFrame()
+        else
+            StopFlyCFrame()
+        end
+    end
+end)
+
+CreateKeybind("Noclip", "NoclipKeybind", "", function(key)
+    if key ~= "" then
+        NoclipEnabled = not NoclipEnabled
+        NoclipToggle:Set(NoclipEnabled)
+        ToggleNoclip()
+    end
+end)
+
+CreateKeybind("Fullbright", "FullbrightKeybind", "", function(key)
+    if key ~= "" then
+        FullbrightEnabled = not FullbrightEnabled
+        FullbrightToggle:Set(FullbrightEnabled)
+        ApplyFullbright()
+    end
+end)
+
+CreateKeybind("No Fog", "NoFogKeybind", "", function(key)
+    if key ~= "" then
+        NoFogEnabled = not NoFogEnabled
+        NoFogToggle:Set(NoFogEnabled)
+        ApplyNoFog()
+    end
+end)
+
+CreateKeybind("Teleport", "TeleportKeybind", "", function(key)
+    if key ~= "" then
+        local playerName = TeleportTab.PlayerName or ""
+        TeleportToPlayerWithOffset(playerName)
+    end
+end)
+
+CreateKeybind("SpinBot", "SpinBotKeybind", "", function(key)
+    if key ~= "" then
+        SpinBotEnabled = not SpinBotEnabled
+        SpinBotToggle:Set(SpinBotEnabled)
+        if SpinBotEnabled then
+            StartSpinBot()
+        else
+            StopSpinBot()
+        end
+    end
+end)
+
+CreateKeybind("ESP", "ESPKeybind", "", function(key)
+    if key ~= "" then
+        ESPEnabled = not ESPEnabled
+        ESPToggle:Set(ESPEnabled)
+        ToggleESP()
+    end
+end)
+
+CreateKeybind("Fast Teleport (Follow)", "FastTeleportKeybind", "", function(key)
+    if key ~= "" then
+        FastTeleportToggle:Set(not FastTeleportToggle.CurrentValue)
+        FastTeleportToggle.Callback(FastTeleportToggle.CurrentValue)
+    end
 end)
 
 -- Load Scripts
@@ -1461,11 +1378,8 @@ Players.LocalPlayer.CharacterAdded:Connect(function(newChar)
     end
 end)
 
--- Отслеживаем добавление новых игроков для ESP
+-- Отслеживаем добавление новых игроков
 Players.PlayerAdded:Connect(function(player)
-    if ESPEnabled and player ~= Player then
-        setupESP(player)
-    end
     -- Обновляем список игроков в dropdown
     UpdatePlayersList()
 end)
@@ -1499,10 +1413,25 @@ Players.PlayerRemoving:Connect(function(player)
         if FlyCFrameLoop then
             FlyCFrameLoop:Disconnect()
         end
-        clearESP()
+        ClearESPBoxes()
     else
         -- Обновляем список игроков в dropdown
         UpdatePlayersList()
+    end
+end)
+
+-- ESP Key handler
+UIS.InputBegan:Connect(function(input)
+    if input.KeyCode == ESPDisableKey and not UIS:GetFocusedTextBox() then
+        ESPBoxesVisible = not ESPBoxesVisible
+        ToggleESP()
+        
+        Rayfield:Notify({
+            Title = "ESP",
+            Content = "ESP boxes visibility: " .. tostring(ESPBoxesVisible),
+            Duration = 3,
+            Image = 4483362458
+        })
     end
 end)
 
@@ -1513,9 +1442,6 @@ ApplyFullbright()
 ApplyNoFog()
 UpdatePlayersList() -- Инициализируем список игроков
 
--- Загружаем сохраненные настройки
-LoadSavedSettings()
-
 -- Load notification
 Rayfield:Notify({
     Title = "Control Panel",
@@ -1523,3 +1449,23 @@ Rayfield:Notify({
     Duration = 5,
     Image = 4483362458
 })
+
+-- Загрузка сохранённых настроек Rayfield
+-- Rayfield автоматически загружает настройки для элементов с флагами при их создании
+-- Мы просто проверяем, что все элементы были созданы до этого момента
+wait(1)
+
+-- Применяем начальные состояния после загрузки настроек
+if SpeedEnabled then
+    Humanoid.WalkSpeed = DesiredWalkSpeed
+end
+
+if JumpEnabled then
+    Humanoid.JumpHeight = DesiredJumpHeight
+end
+
+if ESPEnabled then
+    ToggleESP()
+end
+
+Rayfield:LoadConfiguration()
